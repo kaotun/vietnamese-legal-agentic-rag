@@ -1,195 +1,320 @@
 # LegalDoc QA — Lộ trình Thực hiện Dự án
 
-**Phiên bản:** 1.0
+**Phiên bản:** 2.0
 **Loại tài liệu:** Kế hoạch triển khai theo giai đoạn (Implementation Roadmap)
 
 ---
 
 ## Nguyên tắc tổ chức lộ trình
 
-Dự án được chia thành **6 phase**, đi từ nền tảng dữ liệu → truy xuất → suy luận → cấu trúc hóa đầu ra → đảm bảo chất lượng → hoàn thiện sản phẩm. Mỗi phase có:
-- **Mục tiêu** rõ ràng
-- **Đầu vào / Đầu ra** cụ thể
-- **Kỹ thuật áp dụng**
-- **Tiêu chí hoàn thành (Definition of Done)**
+Dự án chia thành **6 phase**, đi từ nền tảng dữ liệu → retrieval → reasoning → memory → đảm bảo chất lượng → hoàn thiện sản phẩm.
+
+**Nguyên tắc xuyên suốt:**
+- **Implement-first:** Tự viết từng module từ đầu, chỉ dùng high-level library sau khi đã tự làm được — để thực sự hiểu bên dưới hoạt động thế nào.
+- **Measure everything:** Mọi cải tiến đều phải có số liệu trước/sau (Recall@k, latency, hallucination rate).
+- **Tuần tự:** Phase sau phụ thuộc vào chất lượng phase trước — retrieval kém thì reasoning không thể tốt, dù prompt có hay đến đâu.
 
 ---
 
-## Phase 0 — Chuẩn bị & Thu thập dữ liệu
+## Phase 0 — Chuẩn bị & Thu thập Dữ liệu
 
-**Mục tiêu:** Có bộ dữ liệu tài liệu pháp lý tiếng Việt thực tế để làm việc xuyên suốt dự án.
+**Mục tiêu:** Có đủ dữ liệu, hiểu cấu trúc, sẵn sàng cho Phase 1.
 
-### 0.1. Bộ dữ liệu tiếng Việt có sẵn (dùng làm nguồn chính)
+**Kỹ năng luyện:** Thiết kế evaluation dataset, data exploration, ground truth annotation.
 
-Vì hệ thống làm bằng tiếng Việt, ưu tiên các nguồn sau — chủ yếu là văn bản quy phạm pháp luật (luật, nghị định, thông tư), dùng tốt cho việc luyện chunking theo điều khoản, semantic search và retrieval evaluation:
+### Công việc cần làm
 
-| Tên bộ dữ liệu | Nội dung | Dùng để |
-|---|---|---|
-| **vbpl-vn** (Hugging Face: `tmquan/vbpl-vn`) | Toàn bộ văn bản pháp luật từ Cơ sở dữ liệu Quốc gia về Pháp luật (vbpl.vn, Bộ Tư pháp), có cấu trúc phân cấp document → section → paragraph → sentence, chia theo trung ương và địa phương | Nguồn chính cho Phase 1 (ingestion, chunking theo điều khoản) |
-| **YuITC/Vietnamese-Legal-Doc-Retrieval-Data** (Hugging Face) | Cặp câu hỏi — điều khoản liên quan (dạng question + context_list), đã có sẵn ground truth | Dùng trực tiếp cho Phase 2 (đánh giá Recall@k của retrieval) |
-| **UTS_VLC** (Hugging Face: `undertheseanlp/UTS_VLC`) | Toàn văn Hiến pháp, Bộ luật, Luật do Quốc hội ban hành (1945–nay), định dạng Markdown sạch | Dùng cho semantic search / QA trên văn bản luật gốc |
-| **vietnamese-legal-documents-dataset** (GitHub: `duyet/vietnamese-legal-documents-dataset`) | Dữ liệu QA/tóm tắt dạng hội thoại (system/user/assistant), có gắn loại văn bản (Nghị định, Thông tư...) | Dùng làm câu hỏi mẫu cho Phase 3 (giải thích điều khoản) |
-| **vbpl-vn-legal-corpus** (Hugging Face: `Monmoonluna/vbpl-vn-legal-corpus`) | Quan hệ trích dẫn/sửa đổi giữa các văn bản luật (CITES, AMEND...) | Dùng mở rộng nếu muốn thêm tính năng tra cứu văn bản liên quan |
-| **vietnamese_legal_corpus** (Hugging Face: `th1nhng0/vietnamese_legal_corpus`) | ~6GB văn bản pháp luật thô | Dùng làm corpus dự phòng nếu cần khối lượng lớn để test hiệu năng |
+**0.1. Khám phá dữ liệu đã có:**
+- Đọc và hiểu cấu trúc từng record trong `vbpl_sample.jsonl`: các trường `markdown`, `structure_json`, `legal_type`, `doc_type`, `num_sections` — đây là nguồn văn bản chính cho toàn bộ dự án.
+- Viết notebook data exploration: thống kê phân bố loại văn bản, độ dài trung bình, số điều khoản trên mỗi văn bản.
+- Tìm hiểu cấu trúc `retrieval_eval_train.jsonl`: hiểu các trường `question`, `context_list`, `relevant_passage_ids` — đây là ground truth để đánh giá retrieval.
 
-> Toàn bộ các bộ trên đều là văn bản pháp luật công khai, thuộc phạm vi được phép tiếp cận tự do theo quy định pháp luật Việt Nam về công khai văn bản quy phạm pháp luật — an toàn để sử dụng cho mục đích học tập/nghiên cứu.
+**0.2. Tải thêm dữ liệu (nếu cần):**
+- Cập nhật script download để tải thêm văn bản từ `tmquan/vbpl-vn`, tăng số lượng mẫu lên 500–1000.
+- Cân nhắc tải dataset án lệ `tmquan/anle-toaan-gov-vn` — chứa vụ án thực tế, phong phú hơn về câu hỏi tình huống cụ thể.
 
-### 0.2. Hạn chế cần lưu ý và cách bổ sung
+**0.3. Tạo adversarial eval set:**
+- Soạn 20–30 câu hỏi "bẫy" để kiểm tra khả năng từ chối của hệ thống, chia 3 loại:
+  - *Out-of-scope:* Câu hỏi không liên quan đến bất kỳ nội dung nào trong corpus (vd: giá cả thị trường, thời tiết).
+  - *Ambiguous:* Câu hỏi dùng đại từ không rõ ràng, không đủ ngữ cảnh để trả lời chính xác.
+  - *Trick:* Hỏi về điều khoản không tồn tại hoặc số hiệu văn bản sai.
+- Lưu vào `data/eval/adversarial_eval.jsonl`, mỗi câu kèm nhãn `expected_behavior: "refuse"`.
 
-Các bộ dữ liệu trên chủ yếu là **văn bản luật** (Luật, Nghị định, Thông tư), không phải **hợp đồng thương mại/NDA/hợp đồng lao động** — trong khi đồ án hướng đến rà soát hợp đồng. Cần bổ sung thêm:
-- Mẫu hợp đồng thương mại, NDA, hợp đồng lao động, điều khoản dịch vụ công khai (từ các trang mẫu văn bản pháp lý, website tư vấn doanh nghiệp có đăng mẫu miễn phí)
-- Điều khoản dịch vụ (Terms of Service) công khai của các nền tảng số tại Việt Nam — là văn bản công khai, hợp pháp để sử dụng
-- Tự soạn 3–5 hợp đồng mẫu (ẩn danh hoàn toàn thông tin cá nhân/doanh nghiệp) mô phỏng các loại hợp đồng phổ biến, để chủ động kiểm soát được độ phức tạp và loại rủi ro cài vào
+**0.4. (Optional) Tạo 3–5 hợp đồng synthetic:**
+- Soạn tay hoặc dùng LLM để tạo hợp đồng mẫu đa dạng loại (thương mại, lao động, NDA).
+- Cài sẵn các loại rủi ro từ `risk_taxonomy.py` để dùng cho tính năng phụ về sau.
+- Lưu vào `data/raw/contracts/`.
 
-**Nguyên tắc bắt buộc:** không sử dụng hợp đồng thật có chứa thông tin cá nhân, số liệu tài chính, hoặc thông tin định danh doanh nghiệp chưa được ẩn danh.
-
-### 0.3. Công việc cần thực hiện
-- Tải và làm sạch dữ liệu từ các nguồn ở mục 0.1
-- Thu thập/soạn bổ sung 5–10 mẫu hợp đồng thương mại theo mục 0.2, phân loại độ phức tạp: ngắn (dưới 5 trang), trung bình (10–20 trang), dài (trên 30 trang)
-- Xác định trước một số câu hỏi mẫu và câu trả lời "chuẩn" (ground truth) để dùng làm bộ kiểm thử về sau — có thể tận dụng trực tiếp từ `YuITC/Vietnamese-Legal-Doc-Retrieval-Data`
-- Xác định danh sách các loại rủi ro pháp lý phổ biến cần hệ thống nhận diện (vd: điều khoản đơn phương chấm dứt hợp đồng, điều khoản phạt vi phạm không cân xứng, điều khoản bảo mật thiếu rõ ràng...)
-
-**Kỹ thuật/khái niệm áp dụng:** thiết kế bộ dữ liệu đánh giá (evaluation dataset), xác định ground truth, data anonymization.
-
-**Tiêu chí hoàn thành:** có bộ dữ liệu tài liệu (luật + hợp đồng mẫu) + bộ câu hỏi/đáp mẫu + danh sách loại rủi ro, sẵn sàng dùng xuyên suốt các phase sau.
+**Tiêu chí hoàn thành:**
+- [ ] Hiểu được cấu trúc của cả 3 dataset (vbpl, retrieval_eval, adversarial)
+- [ ] Có notebook data exploration với thống kê cơ bản
+- [ ] `adversarial_eval.jsonl` có ít nhất 20 câu hỏi với nhãn rõ ràng
 
 ---
 
 ## Phase 1 — Xử lý & Cấu trúc hóa Tài liệu (Document Ingestion)
 
-**Mục tiêu:** Biến tài liệu pháp lý thô thành dữ liệu có thể tìm kiếm ngữ nghĩa.
+**Mục tiêu:** Biến văn bản pháp luật thô thành dữ liệu có thể tìm kiếm ngữ nghĩa.
 
-**Công việc cần thực hiện:**
-- Trích xuất văn bản từ tài liệu, giữ lại thông tin cấu trúc (số điều khoản, tiêu đề mục, số trang)
-- Thiết kế chiến lược chunking theo ranh giới ngữ nghĩa (theo điều khoản/khoản), không chunk cứng theo số ký tự
-- Gán metadata cho từng đoạn: vị trí gốc, số điều khoản, loại điều khoản (nếu phân loại được)
-- Sinh embedding cho từng đoạn văn bản
-- Xây dựng đồng thời hai chỉ mục tìm kiếm: chỉ mục vector (semantic) và chỉ mục từ khóa (BM25)
+**Kỹ năng luyện:** Tokenization, Semantic chunking, Text embeddings, FAISS indexing, Cosine similarity.
 
-**Kỹ thuật áp dụng:**
-- Semantic chunking (chunking theo ranh giới ý nghĩa thay vì token cố định)
-- Text embeddings
-- Vector indexing (FAISS)
-- Keyword indexing (BM25)
+### Công việc cần làm
 
-**Tiêu chí hoàn thành:** với bất kỳ tài liệu nào trong bộ dữ liệu Phase 0, hệ thống có thể chunk và index thành công, truy vấn thử bằng một câu hỏi đơn giản trả về đúng đoạn văn bản liên quan.
+**1.1. Xây dựng Document Extractor:**
+- Đọc và parse dữ liệu từ file JSONL (vbpl), file TXT và tùy chọn file PDF.
+- Trích xuất các trường quan trọng: nội dung văn bản (`markdown`), tiêu đề, loại văn bản, nguồn gốc.
+- Đảm bảo output chuẩn hóa: mỗi tài liệu là một dict với `doc_id`, `text`, `title`, `legal_type`, `source_url`.
+
+**1.2. Xây dựng Semantic Chunker — Module quan trọng nhất Phase 1:**
+- Thiết kế chiến lược chunking theo ranh giới điều khoản, không cắt cứng theo số ký tự.
+- Dùng biểu thức chính quy (Regex) để nhận diện ranh giới: `Điều X.`, `Chương X`, `Khoản X`.
+- Chiến lược cơ bản: cắt tại mỗi "Điều", gộp các Khoản vào cùng Điều tương ứng, tránh chunk quá ngắn (< 100 ký tự) hoặc quá dài (> 2000 ký tự).
+- Mỗi chunk đầu ra phải có `chunk_id`, `text`, `doc_id`, `article_ref` (tham chiếu điều khoản gốc).
+- Thực nghiệm trong notebook: thử ít nhất 3 chiến lược chunking khác nhau, đo và so sánh số chunk/doc, tỷ lệ chunk có đủ ngữ cảnh.
+
+**1.3. Xây dựng Document Embedder:**
+- Tích hợp SentenceTransformer để sinh vector embedding cho từng chunk.
+- Hỗ trợ batch encoding để tối ưu tốc độ.
+- Build FAISS index từ tập embedding, lưu index xuống disk để tái sử dụng.
+- Thực nghiệm so sánh hai embedding model: `keepitreal/vietnamese-sbert` (chuyên tiếng Việt) vs `paraphrase-multilingual-MiniLM-L12-v2` (đa ngôn ngữ nhẹ hơn). Metric so sánh: thời gian encode, kích thước index, chất lượng nearest-neighbor trên 10 câu test thủ công.
+
+**1.4. Xây dựng BM25 Keyword Index:**
+- Dùng thư viện `rank-bm25` để xây dựng chỉ mục từ khóa trên toàn bộ corpus chunk.
+- Hỗ trợ lưu và load index từ disk.
+
+**1.5. Script chạy toàn bộ pipeline Ingestion:**
+- Chạy end-to-end: từ file JSONL thô → chunks → FAISS index + BM25 index + Document Store.
+- Log đầu ra: tổng số chunk, thời gian xử lý, kích thước index.
+
+**Tiêu chí hoàn thành:**
+- [ ] Pipeline ingestion chạy thành công trên toàn bộ `vbpl_sample.jsonl`
+- [ ] Tự implement và hiểu cosine similarity từ numpy trước khi dùng FAISS
+- [ ] Notebook so sánh 2 embedding model với kết luận rõ ràng
+- [ ] Query thử thủ công: "Điều kiện để ký hợp đồng lao động" → kết quả trả về phải liên quan
 
 ---
 
 ## Phase 2 — Truy xuất Thông tin Nâng cao (Advanced Retrieval)
 
-**Mục tiêu:** Đảm bảo hệ thống tìm đúng điều khoản liên quan với độ chính xác cao, kể cả với câu hỏi diễn đạt khác cách viết trong hợp đồng.
+**Mục tiêu:** Đảm bảo hệ thống tìm đúng điều khoản liên quan, kể cả khi câu hỏi diễn đạt khác cách viết trong văn bản gốc.
 
-**Công việc cần thực hiện:**
-- Triển khai tìm kiếm lai (hybrid search): kết hợp kết quả từ semantic search và keyword search
-- Triển khai tầng rerank để chấm điểm lại độ liên quan của các ứng viên trước khi đưa vào bước suy luận
-- Thiết lập ngưỡng độ tin cậy: nếu không có ứng viên nào đạt ngưỡng, hệ thống phải trả lời "không tìm thấy" thay vì đoán
-- Đánh giá độ chính xác truy xuất bằng bộ câu hỏi mẫu đã chuẩn bị ở Phase 0
+**Kỹ năng luyện:** Hybrid search, BM25, Cross-encoder reranking, Recall@k evaluation, Confidence thresholding.
 
-**Kỹ thuật áp dụng:**
-- Hybrid search (semantic + BM25)
-- Reranking bằng cross-encoder
-- Confidence thresholding
-- Retrieval evaluation (đo lường bằng metric như Recall@k, Precision@k)
+### Công việc cần làm
 
-**Tiêu chí hoàn thành:** với bộ câu hỏi mẫu, hệ thống truy xuất đúng điều khoản liên quan ở tỷ lệ chấp nhận được (tự đặt mục tiêu, ví dụ ≥ 80% Recall@5); các câu hỏi không liên quan đến tài liệu phải bị từ chối đúng cách.
+**2.1. Xây dựng Hybrid Search (Reciprocal Rank Fusion):**
+- Kết hợp kết quả từ semantic search (FAISS) và keyword search (BM25) thành một ranked list thống nhất.
+- Dùng **Reciprocal Rank Fusion (RRF)**: cộng điểm theo thứ hạng (rank), không theo giá trị điểm tuyệt đối — tránh vấn đề scale không đồng nhất giữa 2 phương pháp.
+- Kết quả sau merge là top-20 ứng viên để đưa vào bước rerank.
+
+**2.2. Xây dựng Cross-Encoder Reranker:**
+- Dùng cross-encoder (vd: `ms-marco-MiniLM-L-6-v2`) để chấm điểm lại từng cặp (query, chunk) chính xác hơn so với cosine similarity.
+- Chọn top 3–5 chunk có điểm cao nhất để đưa vào Reasoning Layer.
+- Nếu điểm cao nhất vẫn dưới ngưỡng → đánh dấu "không tìm thấy thông tin liên quan".
+
+**2.3. Xây dựng Retrieval Evaluation:**
+- Implement các hàm tính metric: `Recall@k`, `Mean Reciprocal Rank (MRR)`, `Precision@k`.
+- Load `retrieval_eval_test.jsonl`, chạy 4 cấu hình và so sánh:
+
+| Cấu hình | Recall@1 | Recall@5 | MRR | Latency |
+|---|---|---|---|---|
+| Semantic only | ? | ? | ? | ? |
+| BM25 only | ? | ? | ? | ? |
+| Hybrid (RRF) | ? | ? | ? | ? |
+| Hybrid + Rerank | ? | ? | ? | ? |
+
+*Mục tiêu: Hybrid + Rerank đạt Recall@5 ≥ 80%.*
+
+**2.4. Thiết lập Confidence Threshold:**
+- Vẽ phân bố (distribution) của rerank scores trên toàn bộ test set.
+- Chọn ngưỡng sao cho câu OOD trong `adversarial_eval.jsonl` bị từ chối đúng ≥ 90%.
+
+**Tiêu chí hoàn thành:**
+- [ ] Bảng so sánh 4 cấu hình retrieval với số liệu thực tế
+- [ ] Hybrid + Rerank đạt Recall@5 ≥ 80%
+- [ ] Confidence threshold hoạt động: ≥ 90% câu OOD bị từ chối
+- [ ] Notebook phân tích với biểu đồ phân bố điểm và đường threshold
 
 ---
 
 ## Phase 3 — Suy luận & Giải thích Điều khoản (Reasoning Layer)
 
-**Mục tiêu:** Từ các đoạn văn bản đã truy xuất, sinh ra câu trả lời dễ hiểu, có lập luận rõ ràng và có trích dẫn nguồn.
+**Mục tiêu:** Từ chunks đã retrieve, sinh câu trả lời rõ ràng, có lập luận và trích dẫn nguồn.
 
-**Công việc cần thực hiện:**
-- Thiết kế prompt theo phương pháp chain-of-thought: yêu cầu model xác định chủ thể, nghĩa vụ/quyền lợi, điều kiện áp dụng trước khi đưa ra diễn giải cuối cùng
-- Thiết kế cơ chế bắt buộc trích dẫn nguồn (grounded citation) trong mọi câu trả lời
-- Xử lý trường hợp câu hỏi nằm ngoài phạm vi tài liệu (out-of-context handling)
-- So sánh chất lượng giải thích giữa prompt có chain-of-thought và không có, trên cùng bộ điều khoản phức tạp
+**Kỹ năng luyện:** Prompt engineering (zero-shot, few-shot, CoT), Structured output, Streaming API, Grounded citation.
 
-**Kỹ thuật áp dụng:**
-- Chain-of-Thought prompting
-- Grounded generation / citation-based answering
-- Prompt comparison & evaluation
+### Công việc cần làm
 
-**Tiêu chí hoàn thành:** với các điều khoản phức tạp trong bộ dữ liệu mẫu, câu trả lời của hệ thống dễ hiểu hơn rõ rệt so với văn bản gốc, và mọi câu trả lời đều có trích dẫn nguồn kiểm chứng được.
+**3.1. Xây dựng LLM Client (hỗ trợ Streaming):**
+- Wrapper gọi OpenAI / Anthropic API, hỗ trợ cả hai chế độ: trả về toàn bộ response và streaming từng token.
+- Hỗ trợ gọi có structured output — yêu cầu model trả JSON theo Pydantic schema, validate ngay khi nhận được response.
+
+**3.2. Thực nghiệm Prompt Engineering:**
+Với **cùng một câu hỏi** và **cùng chunks retrieval**, thử 4 kiểu prompt và đánh giá thủ công trên 10 câu test:
+- **Zero-shot:** Chỉ cung cấp context và câu hỏi, không có ví dụ mẫu.
+- **Few-shot:** Kèm 2–3 ví dụ câu hỏi–trả lời mẫu trước câu hỏi thật.
+- **Chain-of-Thought:** Yêu cầu model lập luận từng bước: xác định đối tượng điều khoản → quyền/nghĩa vụ → điều kiện áp dụng → tóm tắt ngôn ngữ phổ thông.
+- **Structured output:** Yêu cầu trả về JSON với các trường `answer`, `confidence`, `sources`.
+
+Đánh giá thủ công mỗi kiểu theo 3 tiêu chí: clarity (1–5), accuracy (1–5), citation quality (1–5).
+
+**3.3. Xây dựng Grounded Citation — Cơ chế chống hallucination chính:**
+- System prompt bắt buộc model chỉ dùng thông tin trong chunks được cung cấp, không dùng kiến thức bên ngoài.
+- Mọi điểm trong câu trả lời phải kèm `[Nguồn: chunk_id]`.
+- Sau khi nhận response: parse citation, kiểm tra xem `chunk_id` được cite có thực sự nằm trong danh sách chunks đã retrieve không. Nếu không → phát hiện hallucination.
+
+**3.4. Xây dựng Legal Explainer:**
+- Module tập trung, nhận vào: câu hỏi, danh sách chunks, lịch sử hội thoại → trả về câu trả lời hoàn chỉnh với citation.
+- Assemble prompt đầy đủ: system prompt grounding + chunks context + lịch sử memory + câu hỏi hiện tại.
+
+**3.5. Xây dựng Streaming Endpoint (FastAPI preview):**
+- Endpoint `/chat/stream` trả response dạng Server-Sent Events (SSE), token-by-token.
+- Cải thiện UX đáng kể so với chờ toàn bộ response.
+
+**Tiêu chí hoàn thành:**
+- [ ] Notebook so sánh 4 kiểu prompt với bảng đánh giá thủ công
+- [ ] Citation validation phát hiện được khi model cite source không có trong context
+- [ ] Streaming endpoint trả token real-time
+- [ ] 10 câu hỏi test thủ công: mọi câu trả lời đều có citation hợp lệ
 
 ---
 
-## Phase 4 — Trích xuất Rủi ro có Cấu trúc (Structured Risk Extraction)
+## Phase 4 — Hội thoại có Bộ nhớ (Conversational Memory)
 
-**Mục tiêu:** Quét toàn bộ tài liệu và xuất ra bảng rủi ro có định dạng chuẩn, nhất quán, có thể kiểm tra tự động.
+**Mục tiêu:** Hệ thống nhớ được ngữ cảnh hội thoại, xử lý được câu hỏi follow-up không cần nhắc lại context.
 
-**Công việc cần thực hiện:**
-- Thiết kế schema cố định cho mỗi rủi ro được phát hiện: vị trí điều khoản, loại rủi ro, mức độ nghiêm trọng, mô tả, khuyến nghị xử lý
-- Thiết kế luồng quét tuần tự/song song qua toàn bộ điều khoản của tài liệu
-- Triển khai cơ chế validate đầu ra theo schema; nếu model trả sai định dạng, tự động yêu cầu sinh lại
-- Thiết kế cơ chế sắp xếp/ưu tiên hiển thị theo mức độ nghiêm trọng của rủi ro
-- Kiểm thử trên danh sách loại rủi ro đã xác định ở Phase 0, đo tỷ lệ phát hiện đúng/sót/nhầm
+**Kỹ năng luyện:** Memory patterns (Buffer, Window), Session management, Context window management, Query resolution.
 
-**Kỹ thuật áp dụng:**
-- Structured output generation (JSON schema có ràng buộc)
-- Output validation & auto-retry
-- Batch document scanning
+### Công việc cần làm
 
-**Tiêu chí hoàn thành:** hệ thống xuất được bảng rủi ro đầy đủ, đúng schema 100% (sau retry nếu cần), phát hiện được phần lớn các loại rủi ro đã định nghĩa trước trong bộ dữ liệu kiểm thử.
+**4.1. Implement Buffer Memory:**
+- Giữ toàn bộ lịch sử hội thoại của session — đơn giản nhất nhưng nhanh vượt context limit khi hội thoại dài.
+- Theo dõi tổng số token đang dùng để cảnh báo khi gần ngưỡng.
+
+**4.2. Implement Window Memory:**
+- Chỉ giữ k exchanges gần nhất (mặc định k=5) — trade-off giữa nhớ ngữ cảnh và tiết kiệm token.
+- So sánh với Buffer Memory trên các kịch bản hội thoại dài để rút ra kết luận về khi nào nên dùng loại nào.
+
+**4.3. Implement Session Store:**
+- Quản lý nhiều session người dùng đồng thời, mỗi session có memory riêng và tài liệu đang được hỏi riêng.
+- Hỗ trợ tạo mới, lấy, và xóa session.
+
+**4.4. Xử lý Follow-up Queries:**
+- Khi câu hỏi chứa đại từ mơ hồ ("điều đó", "quy định trên", "nó"...), dùng LLM để mở rộng thành câu hỏi đầy đủ có ngữ cảnh từ lịch sử hội thoại trước khi đưa vào Retrieval Layer.
+- Ví dụ: "Còn điều khoản đó thì sao?" → "Điều 15 về quyền đơn phương chấm dứt hợp đồng áp dụng trong điều kiện nào?"
+
+**4.5. Test hội thoại multi-turn:**
+- Thiết kế 5 kịch bản hội thoại 3–5 lượt, kiểm tra follow-up queries được resolve đúng, context window không tràn, câu trả lời sau nhất quán với câu trước.
+
+**Tiêu chí hoàn thành:**
+- [ ] Cả 2 chiến lược memory (Buffer, Window) được implement và có thể so sánh
+- [ ] Session management hoạt động đồng thời với nhiều session
+- [ ] 5 kịch bản hội thoại multi-turn vượt qua
 
 ---
 
-## Phase 5 — Đảm bảo Chất lượng & Chống Hallucination (QA & Trust Layer)
+## Phase 5 — Đảm bảo Chất lượng & Chống Hallucination (QA Layer)
 
-**Mục tiêu:** Đưa hệ thống đạt độ tin cậy đủ để dùng cho tài liệu pháp lý thật — đây là phase bắt buộc với sản phẩm thuộc domain nhạy cảm.
+**Mục tiêu:** Đưa hệ thống đạt độ tin cậy đủ để dùng cho văn bản pháp lý thật.
 
-**Công việc cần thực hiện:**
-- Xây dựng bộ kiểm thử đối kháng (adversarial test set): câu hỏi đánh lừa, câu hỏi ngoài phạm vi tài liệu, câu hỏi mơ hồ
-- Đo tỷ lệ hallucination: số câu trả lời không có căn cứ trong tài liệu gốc
-- Đánh giá chất lượng câu trả lời bằng phương pháp LLM-as-judge (dùng một model khác chấm điểm câu trả lời) kết hợp với đánh giá thủ công
-- Tinh chỉnh ngưỡng độ tin cậy và cơ chế fallback dựa trên kết quả kiểm thử
-- Viết disclaimer và giới hạn sử dụng rõ ràng cho sản phẩm
+**Kỹ năng luyện:** Adversarial testing, Hallucination rate measurement, LLM-as-Judge evaluation.
 
-**Kỹ thuật áp dụng:**
-- Adversarial testing
-- Hallucination rate measurement
-- LLM-as-judge evaluation
-- Fallback mechanism design
+### Công việc cần làm
 
-**Tiêu chí hoàn thành:** hệ thống vượt qua bộ kiểm thử đối kháng ở mức chấp nhận được; các câu hỏi ngoài phạm vi đều bị từ chối đúng cách thay vì bịa câu trả lời.
+**5.1. Đo Hallucination Rate:**
+- Với mỗi câu trả lời: kiểm tra từng điểm trong response có được hỗ trợ bởi chunks đã cite không.
+- Dùng LLM thứ hai (LLM-as-judge) để chấm điểm faithfulness — model không biết câu trả lời được sinh ra như thế nào, chỉ đánh giá dựa trên nguồn.
+
+**5.2. Implement LLM-as-Judge:**
+- Dùng một LLM độc lập để chấm điểm câu trả lời theo 3 tiêu chí:
+  - **Faithfulness (0–5):** Câu trả lời có bám sát tài liệu gốc không, hay tự bịa?
+  - **Relevance (0–5):** Câu trả lời có đúng vào câu hỏi không?
+  - **Clarity (0–5):** Câu trả lời có dễ hiểu với người không chuyên pháp lý không?
+- Ghi điểm và lý do vào báo cáo.
+
+**5.3. Chạy Full Evaluation Pipeline:**
+- Load `retrieval_eval_test.jsonl` → chạy toàn bộ RAG pipeline → thu thập câu trả lời → đo Recall@5, hallucination rate, average faithfulness/relevance/clarity.
+- Load `adversarial_eval.jsonl` → đo tỷ lệ câu OOD bị từ chối đúng.
+
+**5.4. Tổng hợp báo cáo chất lượng:**
+
+| Metric | Mục tiêu | Kết quả thực tế |
+|---|---|---|
+| Recall@5 (retrieval) | ≥ 80% | ? |
+| Hallucination rate | ≤ 10% | ? |
+| Faithfulness score (avg) | ≥ 4.0/5 | ? |
+| OOD rejection rate | ≥ 90% | ? |
+| Avg response latency | ≤ 5s | ? |
+
+**5.5. Vòng cải tiến:**
+- Phân tích lỗi: hệ thống hay sai ở loại câu hỏi nào, ở bước nào (retrieval hay reasoning)?
+- Thực hiện ít nhất 1 vòng cải tiến có đo lường (vd: điều chỉnh threshold, thêm few-shot vào prompt, thay embedding model) và ghi lại số liệu trước/sau.
+
+**Tiêu chí hoàn thành:**
+- [ ] Tất cả metric trong bảng được điền với số liệu thực tế
+- [ ] Báo cáo có phần error analysis: loại câu hỏi nào hệ thống hay sai
+- [ ] Ít nhất 1 vòng cải tiến có số liệu trước/sau rõ ràng
+- [ ] Báo cáo lưu vào `evaluation/reports/`
 
 ---
 
 ## Phase 6 — Hoàn thiện Sản phẩm & Trình bày (Productization)
 
-**Mục tiêu:** Đóng gói toàn bộ hệ thống thành sản phẩm có thể demo và trình bày chuyên nghiệp.
+**Mục tiêu:** Đóng gói thành sản phẩm có thể demo và trình bày chuyên nghiệp trong portfolio/phỏng vấn.
 
-**Công việc cần thực hiện:**
-- Ghép nối toàn bộ các phase thành luồng sản phẩm hoàn chỉnh: upload → hỏi đáp → quét rủi ro
-- Chuẩn bị bộ demo với 2–3 tài liệu mẫu tiêu biểu (đơn giản, trung bình, phức tạp)
-- Chuẩn bị tài liệu trình bày: mô tả bài toán, kiến trúc, kết quả đánh giá (số liệu Recall/Precision, tỷ lệ hallucination), giới hạn của sản phẩm
-- Chuẩn bị phần "lessons learned" — những khó khăn kỹ thuật đã gặp và cách giải quyết, đây là phần quan trọng khi trình bày trong phỏng vấn/portfolio
+**Kỹ năng luyện:** FastAPI, Streamlit/Gradio, API design, Streaming, Product storytelling.
 
-**Kỹ thuật áp dụng:**
-- Product packaging & demo storytelling
-- Technical documentation
+### Công việc cần làm
 
-**Tiêu chí hoàn thành:** có một sản phẩm demo chạy được đầu-cuối, kèm tài liệu trình bày đầy đủ số liệu đánh giá, sẵn sàng đưa vào portfolio.
+**6.1. Build FastAPI Backend:**
+- Các endpoint cần có: `/ingest` (upload tài liệu), `/chat` (Q&A thường), `/chat/stream` (Q&A streaming), `/session/{id}` (lấy/xóa lịch sử), `/health` (kiểm tra trạng thái).
+- Thiết kế API schema rõ ràng, có validation.
+
+**6.2. Build Chat UI:**
+- Dùng Streamlit (đơn giản, phù hợp portfolio):
+  - Text input để đặt câu hỏi
+  - Hiển thị câu trả lời với citations được highlight
+  - Sidebar: chọn tài liệu, xem lịch sử session
+  - "Nguồn trích dẫn" dạng expandable dưới mỗi câu trả lời
+
+**6.3. Chuẩn bị Demo Scenarios:**
+Chuẩn bị sẵn 3 kịch bản demo có câu hỏi và câu trả lời mong đợi:
+- *Demo 1 — Tra cứu đơn giản:* Câu hỏi về một điều khoản cụ thể trong corpus.
+- *Demo 2 — Multi-turn:* Hỏi về một điều → hỏi tiếp về điều kiện áp dụng → hỏi về ngoại lệ.
+- *Demo 3 — Robustness:* Câu hỏi ngoài phạm vi → hệ thống từ chối đúng cách với giải thích lịch sự.
+
+**6.4. Viết README.md:**
+- Mô tả bài toán và tại sao nó quan trọng.
+- Sơ đồ kiến trúc hệ thống.
+- Kết quả evaluation (copy từ Phase 5 — đây là phần quan trọng nhất).
+- Hướng dẫn cài đặt và chạy.
+- **Phần "Lessons Learned":** Những khó khăn kỹ thuật đã gặp và cách giải quyết — phần này thường được hỏi nhiều nhất trong phỏng vấn.
+
+**Tiêu chí hoàn thành:**
+- [ ] Demo end-to-end chạy được: upload tài liệu → chat → xem citations
+- [ ] Streaming hoạt động trên UI
+- [ ] README có đầy đủ số liệu evaluation
+- [ ] Có thể giải thích bất kỳ quyết định kỹ thuật nào trong phỏng vấn
 
 ---
 
 ## Tổng quan tiến độ theo Phase
 
-| Phase | Trọng tâm | Kỹ thuật chủ đạo |
-|---|---|---|
-| 0 | Chuẩn bị dữ liệu | Thiết kế evaluation dataset |
-| 1 | Xử lý tài liệu | Semantic chunking, embeddings, indexing |
-| 2 | Truy xuất | Hybrid search, reranking, confidence threshold |
-| 3 | Suy luận | Chain-of-thought, grounded citation |
-| 4 | Trích xuất rủi ro | Structured output, schema validation |
-| 5 | Đảm bảo chất lượng | Adversarial testing, LLM-as-judge |
-| 6 | Hoàn thiện | Productization, trình bày kết quả |
+| Phase | Trọng tâm | Kỹ thuật chủ đạo | Milestone |
+|---|---|---|---|
+| 0 | Chuẩn bị dữ liệu | Data exploration, ground truth design | Có adversarial eval set |
+| 1 | Xử lý tài liệu | Tokenization, Embeddings, FAISS, BM25 | Index build thành công |
+| 2 | Truy xuất | Hybrid search, Cross-encoder, Recall@k | Recall@5 ≥ 80% |
+| 3 | Suy luận | Prompt engineering, CoT, Streaming, Citations | Demo Q&A cơ bản hoạt động |
+| 4 | Memory | Buffer/Window memory, Session management | Multi-turn conversation |
+| 5 | Đảm bảo chất lượng | Adversarial testing, LLM-as-Judge | Báo cáo eval đầy đủ |
+| 6 | Hoàn thiện | FastAPI, Streamlit, Product packaging | Demo end-to-end |
 
 ---
 
-## Gợi ý về cách tiếp cận
+## Gợi ý cách tiếp cận
 
-- Nên đi **tuần tự** qua từng phase vì phase sau phụ thuộc trực tiếp vào chất lượng của phase trước (retrieval kém → reasoning không thể tốt, bất kể prompt viết hay đến đâu)
-- Phase 5 (QA & chống hallucination) thường bị bỏ qua trong các đồ án thông thường nhưng lại là phần **phân biệt rõ nhất** một đồ án sinh viên với một sản phẩm đạt chuẩn thực tế — nên đầu tư thời gian tương xứng
-- Luôn giữ lại số liệu đánh giá (Recall@k, tỷ lệ hallucination, tỷ lệ đúng schema...) qua từng phase để có thể kể câu chuyện "trước và sau khi cải tiến" khi trình bày sản phẩm
+- **Bắt đầu từ notebook, chuyển sang module sau:** Prototype mọi thứ trong `.ipynb` trước, khi logic ổn định mới chuyển thành `.py` module — tránh debug phức tạp khi vừa implement vừa refactor.
+- **Phase 5 là phần quan trọng nhất khi trình bày:** Sinh viên thường bỏ qua evaluation, nhưng đây chính là phần phân biệt một đồ án tốt. Số liệu Recall@k, hallucination rate, LLM-as-judge score là những gì nhà tuyển dụng muốn thấy.
+- **Luôn giữ số liệu trước/sau mỗi cải tiến:** "Sau khi thêm reranking, Recall@5 tăng từ 62% lên 81%" — câu này có giá trị hơn rất nhiều so với "tôi đã implement reranking".
+- **Tự tay implement trước, dùng LangChain/LlamaIndex sau:** Nếu dùng framework ngay từ đầu, bạn sẽ không biết tại sao hệ thống hoạt động (hoặc không hoạt động). Implement thủ công ít nhất 1 lần mỗi component.
