@@ -21,6 +21,7 @@ langchain-openai>=0.1.0
 # Data Handling
 pandas>=2.2.0
 datasets>=2.19.0
+matplotlib>=3.7.0
 
 # Web & API
 fastapi>=0.111.0
