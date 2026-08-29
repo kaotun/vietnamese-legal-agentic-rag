@@ -1,30 +1,45 @@
-{"question": "Lãi suất vay thế chấp ngân hàng Techcombank hiện nay là bao nhiêu?", "expected_behavior": "refuse", "category": "out-of-scope"}
-{"question": "Thủ tục xin visa du lịch Nhật Bản mất bao lâu?", "expected_behavior": "refuse", "category": "out-of-scope"}
-{"question": "Công thức nấu phở bò Nam Định chuẩn vị?", "expected_behavior": "refuse", "category": "out-of-scope"}
-{"question": "Review phim Đào, phở và piano có hay không?", "expected_behavior": "refuse", "category": "out-of-scope"}
-{"question": "Cổ phiếu nào tiềm năng nhất năm 2024?", "expected_behavior": "refuse", "category": "out-of-scope"}
-{"question": "Làm thế nào để trị mụn lưng dứt điểm tại nhà?", "expected_behavior": "refuse", "category": "out-of-scope"}
-{"question": "Nên mua iPhone 15 Pro Max hay Samsung S24 Ultra?", "expected_behavior": "refuse", "category": "out-of-scope"}
-{"question": "Tỷ số trận đấu giữa Manchester United và Arsenal tối qua?", "expected_behavior": "refuse", "category": "out-of-scope"}
-{"question": "Giá Bitcoin hôm nay tăng hay giảm?", "expected_behavior": "refuse", "category": "out-of-scope"}
-{"question": "Cách sửa máy giặt Toshiba bị lỗi E7-4?", "expected_behavior": "refuse", "category": "out-of-scope"}
-{"question": "Điều khoản đó có nghĩa là gì?", "expected_behavior": "refuse", "category": "ambiguous"}
-{"question": "Nếu vi phạm thì bị phạt bao nhiêu tiền?", "expected_behavior": "refuse", "category": "ambiguous"}
-{"question": "Luật này áp dụng cho những ai?", "expected_behavior": "refuse", "category": "ambiguous"}
-{"question": "Bao giờ thì quy định trên có hiệu lực?", "expected_behavior": "refuse", "category": "ambiguous"}
-{"question": "Thế hợp đồng đó có hợp pháp không?", "expected_behavior": "refuse", "category": "ambiguous"}
-{"question": "Người này có bị truy cứu trách nhiệm hình sự không?", "expected_behavior": "refuse", "category": "ambiguous"}
-{"question": "Trường hợp như vậy thì giải quyết thế nào?", "expected_behavior": "refuse", "category": "ambiguous"}
-{"question": "Theo luật thì anh A có được bồi thường không?", "expected_behavior": "refuse", "category": "ambiguous"}
-{"question": "Mức án cho tội này là bao nhiêu năm tù?", "expected_behavior": "refuse", "category": "ambiguous"}
-{"question": "Làm sao để biết mình thuộc trường hợp nào?", "expected_behavior": "refuse", "category": "ambiguous"}
-{"question": "Điều 999 của Bộ luật Hình sự 2015 quy định về tội gì?", "expected_behavior": "refuse", "category": "trick"}
-{"question": "Chương 500 của Luật Doanh nghiệp quy định về loại hình công ty nào?", "expected_behavior": "refuse", "category": "trick"}
-{"question": "Nghị định 9999/2024/NĐ-CP hướng dẫn thi hành luật nào?", "expected_behavior": "refuse", "category": "trick"}
-{"question": "Mức phạt tử hình đối với tội đi xe máy không đội mũ bảo hiểm là gì?", "expected_behavior": "refuse", "category": "trick"}
-{"question": "Điều kiện để một cá nhân tự phong làm Chủ tịch nước là gì?", "expected_behavior": "refuse", "category": "trick"}
-{"question": "Luật Hôn nhân và Gia đình cấm nam giới kết hôn trước 50 tuổi đúng không?", "expected_behavior": "refuse", "category": "trick"}
-{"question": "Quy định nào cho phép người lao động được nghỉ thai sản 20 năm?", "expected_behavior": "refuse", "category": "trick"}
-{"question": "Theo Luật Giao thông đường bộ, người đi bộ có được phép lái máy bay trên cao tốc không?", "expected_behavior": "refuse", "category": "trick"}
-{"question": "Bộ luật Lao động cho phép công ty trả lương bằng tiền âm phủ theo điều mấy?", "expected_behavior": "refuse", "category": "trick"}
-{"question": "Thủ tục đăng ký quyền sở hữu Mặt Trăng ở Việt Nam làm như thế nào?", "expected_behavior": "refuse", "category": "trick"}
+{"question": "Lãi suất vay thế chấp ngân hàng Techcombank hiện nay là bao nhiêu?", "expected_behavior": "refuse", "category": "out-of-scope", "difficulty": "easy"}
+{"question": "Thủ tục xin visa du lịch Nhật Bản mất bao lâu?", "expected_behavior": "refuse", "category": "out-of-scope", "difficulty": "easy"}
+{"question": "Công thức nấu phở bò Nam Định chuẩn vị?", "expected_behavior": "refuse", "category": "out-of-scope", "difficulty": "easy"}
+{"question": "Review phim Đào, phở và piano có hay không?", "expected_behavior": "refuse", "category": "out-of-scope", "difficulty": "easy"}
+{"question": "Cổ phiếu nào tiềm năng nhất năm 2024?", "expected_behavior": "refuse", "category": "out-of-scope", "difficulty": "easy"}
+{"question": "Làm thế nào để trị mụn lưng dứt điểm tại nhà?", "expected_behavior": "refuse", "category": "out-of-scope", "difficulty": "easy"}
+{"question": "Nên mua iPhone 15 Pro Max hay Samsung S24 Ultra?", "expected_behavior": "refuse", "category": "out-of-scope", "difficulty": "easy"}
+{"question": "Tỷ số trận đấu giữa Manchester United và Arsenal tối qua?", "expected_behavior": "refuse", "category": "out-of-scope", "difficulty": "easy"}
+{"question": "Giá Bitcoin hôm nay tăng hay giảm?", "expected_behavior": "refuse", "category": "out-of-scope", "difficulty": "easy"}
+{"question": "Cách sửa máy giặt Toshiba bị lỗi E7-4?", "expected_behavior": "refuse", "category": "out-of-scope", "difficulty": "easy"}
+{"question": "Điều khoản đó có nghĩa là gì?", "expected_behavior": "refuse", "category": "ambiguous", "difficulty": "easy"}
+{"question": "Nếu vi phạm thì bị phạt bao nhiêu tiền?", "expected_behavior": "refuse", "category": "ambiguous", "difficulty": "easy"}
+{"question": "Luật này áp dụng cho những ai?", "expected_behavior": "refuse", "category": "ambiguous", "difficulty": "easy"}
+{"question": "Bao giờ thì quy định trên có hiệu lực?", "expected_behavior": "refuse", "category": "ambiguous", "difficulty": "easy"}
+{"question": "Thế hợp đồng đó có hợp pháp không?", "expected_behavior": "refuse", "category": "ambiguous", "difficulty": "easy"}
+{"question": "Người này có bị truy cứu trách nhiệm hình sự không?", "expected_behavior": "refuse", "category": "ambiguous", "difficulty": "easy"}
+{"question": "Trường hợp như vậy thì giải quyết thế nào?", "expected_behavior": "refuse", "category": "ambiguous", "difficulty": "easy"}
+{"question": "Theo luật thì anh A có được bồi thường không?", "expected_behavior": "refuse", "category": "ambiguous", "difficulty": "easy"}
+{"question": "Mức án cho tội này là bao nhiêu năm tù?", "expected_behavior": "refuse", "category": "ambiguous", "difficulty": "easy"}
+{"question": "Làm sao để biết mình thuộc trường hợp nào?", "expected_behavior": "refuse", "category": "ambiguous", "difficulty": "easy"}
+{"question": "Điều 999 của Bộ luật Hình sự 2015 quy định về tội gì?", "expected_behavior": "refuse", "category": "trick", "difficulty": "easy"}
+{"question": "Chương 500 của Luật Doanh nghiệp quy định về loại hình công ty nào?", "expected_behavior": "refuse", "category": "trick", "difficulty": "easy"}
+{"question": "Nghị định 9999/2024/NĐ-CP hướng dẫn thi hành luật nào?", "expected_behavior": "refuse", "category": "trick", "difficulty": "easy"}
+{"question": "Mức phạt tử hình đối với tội đi xe máy không đội mũ bảo hiểm là gì?", "expected_behavior": "refuse", "category": "trick", "difficulty": "easy"}
+{"question": "Điều kiện để một cá nhân tự phong làm Chủ tịch nước là gì?", "expected_behavior": "refuse", "category": "trick", "difficulty": "easy"}
+{"question": "Luật Hôn nhân và Gia đình cấm nam giới kết hôn trước 50 tuổi đúng không?", "expected_behavior": "refuse", "category": "trick", "difficulty": "easy"}
+{"question": "Quy định nào cho phép người lao động được nghỉ thai sản 20 năm?", "expected_behavior": "refuse", "category": "trick", "difficulty": "easy"}
+{"question": "Theo Luật Giao thông đường bộ, người đi bộ có được phép lái máy bay trên cao tốc không?", "expected_behavior": "refuse", "category": "trick", "difficulty": "easy"}
+{"question": "Bộ luật Lao động cho phép công ty trả lương bằng tiền âm phủ theo điều mấy?", "expected_behavior": "refuse", "category": "trick", "difficulty": "easy"}
+{"question": "Thủ tục đăng ký quyền sở hữu Mặt Trăng ở Việt Nam làm như thế nào?", "expected_behavior": "refuse", "category": "trick", "difficulty": "easy"}
+{"question": "Mức lương tối thiểu vùng I năm 2025 là bao nhiêu?", "expected_behavior": "refuse", "category": "out-of-scope", "difficulty": "hard", "note": "Nghị định lương tối thiểu 2025 nhiều khả năng không có trong corpus mẫu"}
+{"question": "Án lệ số 45/2023/AL của Hội đồng Thẩm phán TANDTC về hợp đồng đặt cọc quy định điều gì?", "expected_behavior": "refuse", "category": "out-of-scope", "difficulty": "hard", "note": "Án lệ cụ thể theo số hiệu, xác suất cao không có trong corpus vbpl_sample"}
+{"question": "Thủ tục khai báo thuế thu nhập cá nhân trên phần mềm HTKK phiên bản 5.2 như thế nào?", "expected_behavior": "refuse", "category": "out-of-scope", "difficulty": "hard", "note": "Hỏi về phần mềm cụ thể và phiên bản cụ thể, không phải nội dung pháp luật"}
+{"question": "Luật Phòng chống rửa tiền của Singapore quy định gì về giao dịch tiền mặt trên 20.000 SGD?", "expected_behavior": "refuse", "category": "out-of-scope", "difficulty": "hard", "note": "Luật nước ngoài, nghe có vẻ liên quan đến pháp luật nhưng ngoài phạm vi hoàn toàn"}
+{"question": "Nghị định 13/2025/NĐ-CP về bảo vệ dữ liệu cá nhân quy định mức phạt vi phạm tối đa là bao nhiêu?", "expected_behavior": "refuse", "category": "out-of-scope", "difficulty": "hard", "note": "Nghị định năm 2025, nhiều khả năng chưa có trong corpus hoặc chưa ban hành"}
+{"question": "Bộ luật Lao động quy định thời gian thử việc tối đa là 6 tháng, điều đó có đúng không?", "expected_behavior": "correct_and_clarify", "category": "hallucination_trap", "difficulty": "hard", "note": "Sai — thực tế tối đa 60 ngày với công việc yêu cầu trình độ đại học, 30 ngày với trung cấp, 6 ngày với các công việc khác"}
+{"question": "Người lao động nữ được nghỉ thai sản tối đa 12 tháng theo quy định của Luật Bảo hiểm xã hội đúng không?", "expected_behavior": "correct_and_clarify", "category": "hallucination_trap", "difficulty": "hard", "note": "Sai — mức cơ bản là 6 tháng, có thể kéo dài thêm trong một số trường hợp đặc biệt nhưng không phải 12 tháng"}
+{"question": "Theo Luật Doanh nghiệp, công ty TNHH hai thành viên trở lên cần tối thiểu 3 thành viên góp vốn đúng không?", "expected_behavior": "correct_and_clarify", "category": "hallucination_trap", "difficulty": "hard", "note": "Sai — tối thiểu 2 thành viên, tối đa 50 thành viên"}
+{"question": "Bộ luật Hình sự quy định tội trốn thuế với số tiền từ 50 triệu đồng trở lên mới bị truy cứu trách nhiệm hình sự?", "expected_behavior": "correct_and_clarify", "category": "hallucination_trap", "difficulty": "hard", "note": "Sai — ngưỡng khởi điểm là 100 triệu đồng theo Điều 200 BLHS 2015"}
+{"question": "Luật Hôn nhân và Gia đình quy định tuổi kết hôn tối thiểu của nam là 20 tuổi và nữ là 18 tuổi đúng không?", "expected_behavior": "correct_and_clarify", "category": "hallucination_trap", "difficulty": "hard", "note": "Sai một phần — nam đủ 20 tuổi đúng, nhưng nữ là đủ 18 tuổi (không phải tròn 18), cần làm rõ cách tính"}
+{"question": "Người nước ngoài có được mua nhà ở tại Việt Nam không?", "expected_behavior": "clarify_before_answer", "category": "ambiguous", "difficulty": "hard", "note": "Câu trả lời phụ thuộc loại nhà, khu vực địa lý (không phải khu vực quốc phòng an ninh), thời hạn sở hữu (50 năm, có thể gia hạn)"}
+{"question": "Hợp đồng bằng lời nói có giá trị pháp lý không?", "expected_behavior": "clarify_before_answer", "category": "ambiguous", "difficulty": "hard", "note": "Phụ thuộc vào loại hợp đồng — một số loại bắt buộc phải lập thành văn bản (hợp đồng mua bán nhà đất, hôn nhân...), một số loại khác thì lời nói có giá trị"}
+{"question": "Người sử dụng lao động có thể đơn phương chấm dứt hợp đồng lao động với nhân viên không?", "expected_behavior": "clarify_before_answer", "category": "ambiguous", "difficulty": "hard", "note": "Câu trả lời phụ thuộc lý do chấm dứt, loại hợp đồng, thời gian báo trước — không thể trả lời Có/Không đơn giản"}
+{"question": "Người chưa đủ 18 tuổi ký hợp đồng có bị vô hiệu không?", "expected_behavior": "clarify_before_answer", "category": "ambiguous", "difficulty": "hard", "note": "Phụ thuộc độ tuổi cụ thể (dưới 6, 6-15, 15-18 tuổi) và loại giao dịch — không phải mọi hợp đồng của người chưa thành niên đều vô hiệu"}
+{"question": "Cảnh sát có quyền khám xét nhà dân mà không cần lệnh không?", "expected_behavior": "clarify_before_answer", "category": "ambiguous", "difficulty": "hard", "note": "Phụ thuộc tình huống — trong trường hợp khẩn cấp (bắt người đang bị truy nã, ngăn chặn tội phạm đang xảy ra) có thể khám xét ngay; tình huống thông thường cần lệnh"}

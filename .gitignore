@@ -1,0 +1,9 @@
+﻿venv/
+__pycache__/
+data/raw/
+data/processed/
+*.bin
+*.pkl
+
+data/eval/*
+!data/eval/adversarial_eval.jsonl

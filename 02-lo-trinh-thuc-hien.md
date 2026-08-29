@@ -40,15 +40,10 @@ Dự án chia thành **6 phase**, đi từ nền tảng dữ liệu → retrieva
   - *Trick:* Hỏi về điều khoản không tồn tại hoặc số hiệu văn bản sai.
 - Lưu vào `data/eval/adversarial_eval.jsonl`, mỗi câu kèm nhãn `expected_behavior: "refuse"`.
 
-**0.4. (Optional) Tạo 3–5 hợp đồng synthetic:**
-- Soạn tay hoặc dùng LLM để tạo hợp đồng mẫu đa dạng loại (thương mại, lao động, NDA).
-- Cài sẵn các loại rủi ro từ `risk_taxonomy.py` để dùng cho tính năng phụ về sau.
-- Lưu vào `data/raw/contracts/`.
-
 **Tiêu chí hoàn thành:**
-- [ ] Hiểu được cấu trúc của cả 3 dataset (vbpl, retrieval_eval, adversarial)
-- [ ] Có notebook data exploration với thống kê cơ bản
-- [ ] `adversarial_eval.jsonl` có ít nhất 20 câu hỏi với nhãn rõ ràng
+- [x] Hiểu được cấu trúc của cả 3 dataset (vbpl, retrieval_eval, adversarial)
+- [x] Có notebook data exploration với thống kê cơ bản
+- [x] `adversarial_eval.jsonl` có ít nhất 20 câu hỏi với nhãn rõ ràng
 
 ---
 
@@ -60,33 +55,55 @@ Dự án chia thành **6 phase**, đi từ nền tảng dữ liệu → retrieva
 
 ### Công việc cần làm
 
-**1.1. Xây dựng Document Extractor:**
+**1.1. Làm sạch dữ liệu & chuẩn hóa metadata:**
+- Đọc dữ liệu raw từ `data/raw/laws/vbpl_sample.jsonl`, không ghi đè file raw.
+- Loại bỏ văn bản không có `markdown`, nội dung quá ngắn, hoặc lỗi parse nghiêm trọng.
+- Deduplicate theo `item_id`, `source_url`, `text_hash`; nếu trùng, giữ bản ghi có metadata đầy đủ hơn.
+- Deduplicate bổ sung theo tổ hợp `doc_number + issue_date + issuing_authority + doc_type` để tránh giữ nhiều bản ghi đại diện cho cùng một văn bản.
+- Chuẩn hóa các trường phân loại: `doc_type`, `legal_type`, `legal_area`.
+- Chuẩn hóa tên cơ quan ban hành `issuing_authority` để gộp các biến thể viết hoa/viết thường hoặc khác cách ghi.
+- Chuẩn hóa thời gian ban hành: `issue_date`, `year`; đánh dấu giá trị thiếu hoặc bất thường.
+- Gắn các trường kiểm soát hiệu lực: `status`, `is_effective`, `effective_date`, `expiry_date`; nếu chưa xác định được hiệu lực thì đặt `status = "unknown"` và `is_effective = null`.
+- Gắn trường `valid_for_index` để quyết định văn bản có được đưa vào RAG index hay không.
+- Chính sách index tạm thời: ưu tiên văn bản còn hiệu lực; nếu chưa rõ hiệu lực thì cho phép index nhưng giữ `status = "unknown"`; không index văn bản đã biết hết hiệu lực trừ khi tạo index riêng cho tra cứu lịch sử.
+- Nếu có văn bản hợp nhất, ưu tiên đưa văn bản hợp nhất vào index thay cho văn bản gốc đã bị sửa đổi nhiều lần.
+- Không dùng `doc_number` làm khóa định danh duy nhất vì số hiệu có thể trùng giữa cơ quan hoặc năm khác nhau.
+- Lưu output vào `data/processed/clean_documents.jsonl`, mỗi dòng là một văn bản sạch đã sẵn sàng cho chunking.
+- Ghi log thống kê trước/sau: số văn bản raw, số văn bản bị loại, số văn bản trùng, phân bố `doc_type`, phân bố `status`, số văn bản `valid_for_index = true`.
+
+**1.2. Xây dựng Document Extractor:**
 - Đọc và parse dữ liệu từ file JSONL (vbpl), file TXT và tùy chọn file PDF.
 - Trích xuất các trường quan trọng: nội dung văn bản (`markdown`), tiêu đề, loại văn bản, nguồn gốc.
 - Đảm bảo output chuẩn hóa: mỗi tài liệu là một dict với `doc_id`, `text`, `title`, `legal_type`, `source_url`.
 
-**1.2. Xây dựng Semantic Chunker — Module quan trọng nhất Phase 1:**
+**1.3. Xây dựng Semantic Chunker — Module quan trọng nhất Phase 1:**
 - Thiết kế chiến lược chunking theo ranh giới điều khoản, không cắt cứng theo số ký tự.
 - Dùng biểu thức chính quy (Regex) để nhận diện ranh giới: `Điều X.`, `Chương X`, `Khoản X`.
 - Chiến lược cơ bản: cắt tại mỗi "Điều", gộp các Khoản vào cùng Điều tương ứng, tránh chunk quá ngắn (< 100 ký tự) hoặc quá dài (> 2000 ký tự).
 - Mỗi chunk đầu ra phải có `chunk_id`, `text`, `doc_id`, `article_ref` (tham chiếu điều khoản gốc).
+- Mỗi chunk phải kế thừa metadata pháp lý từ document gốc: `doc_type`, `legal_type`, `doc_number`, `issue_date`, `year`, `status`, `is_effective`, `source_url`.
 - Thực nghiệm trong notebook: thử ít nhất 3 chiến lược chunking khác nhau, đo và so sánh số chunk/doc, tỷ lệ chunk có đủ ngữ cảnh.
 
-**1.3. Xây dựng Document Embedder:**
+**1.4. Xây dựng Document Embedder:**
 - Tích hợp SentenceTransformer để sinh vector embedding cho từng chunk.
 - Hỗ trợ batch encoding để tối ưu tốc độ.
 - Build FAISS index từ tập embedding, lưu index xuống disk để tái sử dụng.
 - Thực nghiệm so sánh hai embedding model: `keepitreal/vietnamese-sbert` (chuyên tiếng Việt) vs `paraphrase-multilingual-MiniLM-L12-v2` (đa ngôn ngữ nhẹ hơn). Metric so sánh: thời gian encode, kích thước index, chất lượng nearest-neighbor trên 10 câu test thủ công.
 
-**1.4. Xây dựng BM25 Keyword Index:**
+**1.5. Xây dựng BM25 Keyword Index:**
 - Dùng thư viện `rank-bm25` để xây dựng chỉ mục từ khóa trên toàn bộ corpus chunk.
 - Hỗ trợ lưu và load index từ disk.
 
-**1.5. Script chạy toàn bộ pipeline Ingestion:**
-- Chạy end-to-end: từ file JSONL thô → chunks → FAISS index + BM25 index + Document Store.
+**1.6. Script chạy toàn bộ pipeline Ingestion:**
+- Chạy end-to-end: từ file JSONL thô → clean documents → chunks → FAISS index + BM25 index + Document Store.
+- Chỉ chunk và index các văn bản có `valid_for_index = true`.
 - Log đầu ra: tổng số chunk, thời gian xử lý, kích thước index.
 
 **Tiêu chí hoàn thành:**
+- [ ] Có `data/processed/clean_documents.jsonl` sau bước làm sạch và chuẩn hóa metadata
+- [ ] Có chính sách `valid_for_index` để không đưa trực tiếp toàn bộ raw data vào index
+- [ ] Deduplicate được văn bản trùng theo ID, URL, hash nội dung và tổ hợp metadata pháp lý
+- [ ] Chunk store giữ được metadata hiệu lực và nguồn của document gốc
 - [ ] Pipeline ingestion chạy thành công trên toàn bộ `vbpl_sample.jsonl`
 - [ ] Tự implement và hiểu cosine similarity từ numpy trước khi dùng FAISS
 - [ ] Notebook so sánh 2 embedding model với kết luận rõ ràng

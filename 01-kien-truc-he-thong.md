@@ -105,10 +105,28 @@ Hệ thống giải quyết **3 bài toán cốt lõi:**
 
 **Luồng xử lý:**
 1. Nhận file đầu vào (JSONL từ `vbpl-vn` hoặc TXT/PDF)
-2. Trích xuất text, giữ metadata cấu trúc (`doc_id`, `title`, `legal_type`, số điều khoản)
-3. **Semantic chunking theo ranh giới điều khoản** — Regex nhận diện `^Điều \d+\.`, `^Chương [IXV]+` — không cắt cứng theo số token
-4. Sinh embedding cho từng chunk bằng embedding model đa ngôn ngữ
-5. Lưu song song: vector vào FAISS, text + metadata vào Document Store, từ khóa vào BM25 index
+2. Làm sạch và chuẩn hóa dữ liệu: loại bỏ văn bản thiếu nội dung, deduplicate, chuẩn hóa metadata và lưu thành `clean_documents.jsonl`
+3. Trích xuất text, giữ metadata cấu trúc (`doc_id`, `title`, `legal_type`, số điều khoản)
+4. **Semantic chunking theo ranh giới điều khoản** — Regex nhận diện `^Điều \d+\.`, `^Chương [IXV]+` — không cắt cứng theo số token
+5. Sinh embedding cho từng chunk bằng embedding model đa ngôn ngữ
+6. Lưu song song: vector vào FAISS, text + metadata vào Document Store, từ khóa vào BM25 index
+
+**Data Cleaning & Metadata Normalization:**
+- Loại bỏ bản ghi không có `markdown`, nội dung quá ngắn, hoặc lỗi parse nghiêm trọng.
+- Loại bỏ trùng lặp theo `item_id`, `source_url`, `text_hash`; ưu tiên giữ bản ghi có metadata đầy đủ hơn.
+- Chuẩn hóa `doc_type`, `legal_type`, `legal_area`, `issuing_authority`, `issue_date`, `year`.
+- Giữ nguyên cấu trúc pháp lý quan trọng trong `markdown` như Chương, Mục, Điều, Khoản, Điểm; không làm sạch quá mức làm mất ranh giới điều khoản.
+- Lưu output đã chuẩn hóa vào `data/processed/clean_documents.jsonl`; các bước chunking và indexing chỉ đọc từ file processed này, không đọc trực tiếp từ raw.
+
+**Indexing Policy cho dữ liệu pháp luật:**
+- Giữ toàn bộ dữ liệu crawl được trong `data/raw/`; không xóa văn bản chỉ vì cũ, trùng hoặc chưa rõ hiệu lực.
+- Chỉ đưa vào index các văn bản đạt điều kiện trong `clean_documents.jsonl`, thông qua trường `valid_for_index`.
+- Nếu chưa có thông tin hiệu lực đáng tin cậy, gán `status = "unknown"` và `is_effective = null`; không mặc định xem văn bản là còn hiệu lực.
+- Nếu có thông tin văn bản hết hiệu lực, gán `valid_for_index = false` cho câu hỏi hiện hành; chỉ dùng khi người dùng hỏi rõ về văn bản cũ.
+- Nếu có văn bản hợp nhất, ưu tiên văn bản hợp nhất hơn văn bản gốc đã bị sửa đổi nhiều lần.
+- Khi nhiều văn bản có khả năng xung đột, Retrieval Layer ưu tiên văn bản còn hiệu lực, văn bản mới hơn, và văn bản có `doc_type` phù hợp hơn với câu hỏi.
+- Không dùng `doc_number` làm khóa định danh duy nhất; khóa ổn định nên dựa trên `item_id` hoặc tổ hợp `doc_number + issue_date + issuing_authority + doc_type`.
+- Mỗi chunk phải kế thừa metadata pháp lý từ document gốc: `doc_type`, `legal_type`, `doc_number`, `issue_date`, `year`, `status`, `is_effective`, `source_url`.
 
 > **Điểm học quan trọng:** Tự implement tokenization → hiểu tại sao chunking theo token cố định thất bại với văn bản pháp lý, và tại sao cần chunking theo ngữ nghĩa.
 
@@ -211,7 +229,8 @@ Session DB (SQLite / in-memory dict):
 | Thành phần | Công nghệ | Vai trò |
 |---|---|---|
 | Vector Store | FAISS | Lưu embedding, phục vụ ANN search |
-| Document Store | JSON files / SQLite | Lưu text gốc + metadata, phục vụ trích dẫn |
+| Clean Document Store | JSONL | Lưu văn bản đã làm sạch, chuẩn hóa metadata và chính sách index |
+| Document Store | JSON files / SQLite | Lưu chunk text + metadata pháp lý, phục vụ trích dẫn |
 | BM25 Index | `rank-bm25` (Python) | Keyword index cho hybrid search |
 | Session DB | SQLite / dict in-memory | Lưu lịch sử hội thoại theo session |
 
@@ -293,7 +312,11 @@ legaldoc-qa-vn/
 │   ├── raw/
 │   │   ├── laws/                        # vbpl_sample.jsonl (đã có)
 │   │   └── contracts/                   # Hợp đồng synthetic (cần tạo)
-│   ├── processed/                       # Chunks sau khi ingestion
+│   ├── processed/
+│   │   ├── clean_documents.jsonl        # Văn bản đã làm sạch, chuẩn hóa metadata
+│   │   ├── chunk_store.jsonl            # Chunks sau khi ingestion
+│   │   ├── faiss_index.bin              # Vector index
+│   │   └── bm25_index.pkl               # Keyword index
 │   └── eval/
 │       ├── retrieval_eval_train.jsonl   # ✅ Ground truth train
 │       ├── retrieval_eval_test.jsonl    # ✅ Ground truth test
@@ -327,12 +350,7 @@ legaldoc-qa-vn/
 │   │
 │   ├── orchestrator/
 │   │   └── router.py                    # Intent classification + flow routing
-│   │
-│   ├── risk_extraction/                 # Tính năng phụ (optional)
-│   │   ├── extractor.py
-│   │   ├── validator.py
-│   │   └── risk_taxonomy.py
-│   │
+│
 │   └── common/
 │       ├── config.py
 │       ├── logger.py
@@ -355,6 +373,7 @@ legaldoc-qa-vn/
 │       └── chat_ui.py
 │
 ├── notebooks/
+│   ├── 00_data_exploration.ipynb        # Đã hoàn thành
 │   ├── 01_chunking_experiments.ipynb    # Thử nghiệm chunking strategies
 │   ├── 02_embedding_comparison.ipynb    # So sánh embedding models
 │   ├── 03_retrieval_evaluation.ipynb    # Phân tích Recall@k
@@ -379,6 +398,8 @@ legaldoc-qa-vn/
 |---|---|---|
 | Chunking cắt sai điều khoản | Câu trả lời thiếu ngữ cảnh | Test chunker trên nhiều loại văn bản, đo số chunk/điều khoản |
 | Embedding không phân biệt điều khoản giống nhau | Retrieve sai chunk | Thực nghiệm so sánh 2 embedding model, đo Recall@k |
+| Văn bản cũ và mới cùng tồn tại | Câu trả lời dùng quy định đã hết hiệu lực hoặc bị sửa đổi | Gắn metadata hiệu lực, dùng `valid_for_index`, ưu tiên văn bản còn hiệu lực/văn bản hợp nhất |
+| Dữ liệu crawl bị trùng | Retrieval trả về nhiều chunk giống nhau, giảm đa dạng context | Deduplicate theo `item_id`, `source_url`, `text_hash` và tổ hợp metadata pháp lý |
 | Memory vượt context limit | Lỗi API khi hội thoại dài | Implement sliding window + monitor token count |
 | Hallucination khi LLM bỏ qua grounding instruction | Citation không có trong context | Adversarial test + LLM-as-judge để phát hiện |
 | Chi phí API cao khi eval lớn | Budget hết nhanh | Dùng model rẻ hơn (gpt-4o-mini) cho bulk eval, model mạnh cho demo |
