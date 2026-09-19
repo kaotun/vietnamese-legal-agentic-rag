@@ -1,0 +1,50 @@
+# ==============================================================================
+# Trợ lý Hỏi đáp Pháp luật Việt Nam (v3.0) — Cấu hình tập trung duy nhất
+# ==============================================================================
+
+app:
+  host: 0.0.0.0
+  port: 8000
+
+ui:
+  host: 0.0.0.0
+  port: 5173
+
+llm:
+  base_url: http://localhost:11434/v1    # Ollama OpenAI-compatible endpoint
+  default_model: qwen2.5:3b              # Model có sẵn trong máy
+  temperature: 0.1
+  max_tokens: 2000
+  api_key: ollama
+
+embeddings:
+  base_url: http://localhost:11434/v1    # Ollama OpenAI-compatible endpoint
+  model: nomic-embed-text                # Model embedding
+  api_key: ollama
+
+legal_assistant:
+  chat:
+    streaming: true                      # UI gọi /chat/stream (SSE)
+    token_streaming: true                # Stream từng token trực tiếp vào bubble chat
+  retrieval:
+    top_k: 20
+    rerank_top_k: 5
+    fusion_method: rrf                   # Reciprocal Rank Fusion giữa vector + BM25
+  hyde:
+    enabled: true                        # Bật Hypothetical Document Embeddings
+    max_tokens: 250
+    temperature: 0.1
+  reranker:
+    enabled: true                        # Bật Cross-Encoder Reranker
+    engine: smart_fallback               # smart_fallback (chuyên sâu tiếng Việt) | flashrank | http
+    model: ms-marco-MiniLM-L-12-v2
+    top_n: 5
+    base_url: http://localhost:8025
+    endpoint: /v1/rerank
+  batch_eval:
+    enabled: false
+    max_concurrency: 4
+    save_outputs: true
+    output_dir: ./outputs
+  postgres:
+    database_url: postgresql://postgres:postgres@localhost:23432/legal_assistant

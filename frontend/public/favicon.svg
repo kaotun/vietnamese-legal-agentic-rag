@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#4f378a" />
+      <stop offset="100%" stop-color="#7c5eb8" />
+    </linearGradient>
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffdf93" />
+      <stop offset="100%" stop-color="#c9a74d" />
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#000000" flood-opacity="0.25" />
+    </filter>
+  </defs>
+
+  <!-- Nền Squircle cao cấp màu tím nhận diện thương hiệu -->
+  <rect width="64" height="64" rx="16" fill="url(#bgGrad)" />
+
+  <!-- Biểu tượng Búa Công Lý & Tòa Án (Gavel) -->
+  <g filter="url(#shadow)" transform="translate(4, 3)">
+    <!-- Cán búa (Handle) -->
+    <rect x="25" y="27" width="6" height="24" rx="3" transform="rotate(-45 25 27)" fill="#ffffff" />
+    <!-- Khấc vàng trang trí chuôi búa -->
+    <rect x="36.5" y="38.5" width="6" height="4" rx="1.5" transform="rotate(-45 36.5 38.5)" fill="url(#goldGrad)" />
+
+    <!-- Đầu búa (Gavel Head) -->
+    <g transform="rotate(-45 22 24)">
+      <!-- Khối chính đầu búa -->
+      <rect x="11" y="20" width="22" height="10" rx="2.5" fill="#ffffff" />
+      <!-- Hai đầu bọc kim loại màu vàng -->
+      <rect x="9" y="19" width="4" height="12" rx="1.5" fill="url(#goldGrad)" />
+      <rect x="31" y="19" width="4" height="12" rx="1.5" fill="url(#goldGrad)" />
+    </g>
+
+    <!-- Đế gõ búa (Sound block / Base) -->
+    <rect x="6" y="49" width="24" height="5" rx="2.5" fill="url(#goldGrad)" opacity="0.95" />
+  </g>
+</svg>

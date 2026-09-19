@@ -1,0 +1,50 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+ENV/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Testing & Coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Node & Frontend
+node_modules/
+dist/
+dist-ssr/
+*.local
+.npm
+
+# Environment & Credentials
+.env
+.env.*
+!.env.example
+
+# OS specific
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# IDE & Editor
+.idea/
+*.swp
+*.swo
+
+# Large Cache & User Sessions (Automatically generated)
+backend/data/cache/bm25_index_cache.json
+backend/data/sessions/*.json
+!backend/data/sessions/.gitkeep
+!backend/data/cache/.gitkeep
+
+# Logs
+*.log
+logs/
