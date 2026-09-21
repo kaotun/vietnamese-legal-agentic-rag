@@ -49,6 +49,16 @@ async def citation_guard_node(state: LegalAgentState) -> LegalAgentState:
     hallucinated_articles = mentioned_articles - context_articles - GENERAL_PROCEDURAL_ARTICLES
 
     if hallucinated_articles:
+        retry_count = state.get("retry_count", 0)
+        # Nếu còn lượt retry (tối đa 2 lần), kích hoạt vòng lặp Self-Correction
+        if retry_count < 2:
+            return {
+                **state,
+                "guard_status": "retry",
+                "hallucinated_articles": list(hallucinated_articles),
+            }
+
+        # Nếu đã hết lượt retry mà vẫn còn lệch, gắn nhãn cảnh báo an toàn
         warning_header = (
             f"> [!WARNING]\n"
             f"> **Lưu ý kiểm tra trích dẫn**: Hệ thống phát hiện câu trả lời có viện dẫn "
@@ -63,9 +73,11 @@ async def citation_guard_node(state: LegalAgentState) -> LegalAgentState:
             "answer": guarded_answer,
             "history": history,
             "guard_status": "warning",
+            "hallucinated_articles": list(hallucinated_articles),
         }
 
     return {
         **state,
         "guard_status": "passed",
+        "hallucinated_articles": [],
     }

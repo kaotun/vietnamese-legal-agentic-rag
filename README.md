@@ -37,18 +37,37 @@ flowchart TD
     Client["React Web UI"] --> Gateway["FastAPI Gateway"]
     Gateway --> START([START])
 
-    subgraph LangGraph ["LangGraph StateGraph"]
-        START --> Router{"Intent Router"}
+### Sơ đồ 1: Kiến trúc Hệ thống Agentic RAG Đa vòng lặp (CRAG & Self-RAG)
+
+```mermaid
+flowchart TD
+    Client["Client / Người dùng (Web UI / Voice)"] --> Gateway["API Gateway (FastAPI)"]
+    Gateway --> START([START])
+
+    subgraph LangGraph ["LangGraph StateGraph (Agentic RAG Engine)"]
+        START --> Router{"1. Intent Router"}
         Checkpointer[("MemorySaver")] -.-> Router
 
-        Router -->|smalltalk| Smalltalk["Smalltalk Node"]
-        Router -->|legal_query| LegalRAG["Legal RAG Node"]
-        Router -->|out_of_scope| OutScope["Out-of-Scope Node"]
+        Router -->|smalltalk| Smalltalk["2. Smalltalk Node"]
+        Router -->|out_of_scope| OutScope["3. Out-of-Scope Node"]
+        Router -->|legal_query| Decompose["4. Decompose Node<br/>(Spell + Tách vi phạm + HyDE)"]
 
-        LegalRAG --> Guard["Citation Guard Node"]
+        Decompose --> Retrieve["5. Retrieve Node<br/>(BM25 + pgvector + RRF + Reranker)"]
+        Retrieve --> GradeDocs{"6. Grade Documents Node<br/>(Thẩm định độ phù hợp)"}
 
-        Smalltalk --> END([END])
-        Guard --> END
+        %% VÒNG LẶP 1: Corrective RAG (CRAG)
+        GradeDocs -->|"Không phù hợp (Score thấp)<br/>[CRAG Loop 1]"| RewriteQuery["7. Rewrite Query Node<br/>(Mở rộng & Viết lại thuật ngữ)"]
+        RewriteQuery -->|Truy hồi lại| Retrieve
+
+        GradeDocs -->|"Đạt chuẩn"| Generate["8. Generate Node<br/>(Smart Windowing + LLM 4 phần)"]
+        Generate --> CitationGuard{"9. Citation Guard Node<br/>(Kiểm định trích dẫn)"}
+
+        %% VÒNG LẶP 2: Self-Correction (Self-RAG)
+        CitationGuard -->|"Phát hiện trích dẫn ảo<br/>[Self-RAG Loop 2]"| SelfCorrect["10. Self-Correct Node<br/>(Phản hồi nhắc nhở LLM)"]
+        SelfCorrect -->|Sinh lại câu trả lời| Generate
+
+        CitationGuard -->|"Hợp lệ 100%"| END([END])
+        Smalltalk --> END
         OutScope --> END
     end
 
@@ -58,9 +77,9 @@ flowchart TD
         Sessions[("Session Storage")]
     end
 
-    LegalRAG -.-> DB
-    LegalRAG -.-> BM25Cache
-    Guard -.-> DB
+    Retrieve -.-> DB
+    Retrieve -.-> BM25Cache
+    CitationGuard -.-> DB
     Gateway -.-> Sessions
 
     END --> Output["Phản hồi người dùng"]
@@ -68,84 +87,66 @@ flowchart TD
     classDef clientStyle fill:#0f172a,stroke:#38bdf8,stroke-width:2px,color:#f8fafc;
     classDef graphStyle fill:#1e1b4b,stroke:#818cf8,stroke-width:2px,color:#f8fafc;
     classDef ragStyle fill:#14532d,stroke:#4ade80,stroke-width:2px,color:#f8fafc;
+    classDef loopStyle fill:#701a75,stroke:#f472b6,stroke-width:2px,color:#f8fafc;
     classDef dbStyle fill:#311042,stroke:#c084fc,stroke-width:2px,color:#f8fafc;
 
     class Client,Gateway,Output clientStyle;
-    class START,Router,Smalltalk,OutScope,Guard,Checkpointer,END graphStyle;
-    class LegalRAG ragStyle;
+    class START,Router,Smalltalk,OutScope,Checkpointer,END graphStyle;
+    class Decompose,Retrieve,Generate ragStyle;
+    class GradeDocs,RewriteQuery,CitationGuard,SelfCorrect loopStyle;
     class DB,BM25Cache,Sessions dbStyle;
 ```
 
 ---
 
-### Sơ đồ 2: Luồng xử lý Lõi Hybrid RAG (Hybrid RAG Pipeline)
+### Sơ đồ 2: Luồng Tự Động Phản Hồi & Tự Sửa Sai (CRAG & Self-RAG Loops)
 
 ```mermaid
-flowchart TD
-    InQuery(["Input: Câu hỏi + Lịch sử"]) --> Spell
-
-    subgraph Preprocess ["1. Tiền xử lý"]
-        Spell["Spell Corrector<br/>(Sửa chính tả)"] --> Decomp["Query Decomposer<br/>(Tách đa vi phạm)"]
-        Decomp --> HyDE["HyDE Generator<br/>(Sinh giả định)"]
+flowchart LR
+    subgraph CRAG_Loop ["Vòng lặp 1: Corrective RAG (CRAG)"]
+        direction TB
+        Q1["Tài liệu truy hồi"] --> GD["Grade Documents"]
+        GD -- "Độ khớp < Ngưỡng" --> RQ["Rewrite Query"]
+        RQ -- "Truy hồi lại với câu hỏi mở rộng" --> RT["Retrieve"]
+        RT --> GD
     end
 
-    subgraph DualRetrieval ["2. Truy hồi song song"]
-        direction LR
-        subgraph DenseBranch ["Dense Search"]
-            DenseEmbed["BGE-M3 (1024d)"] --> PgVector[("PostgreSQL (Top 30)")]
-        end
-        subgraph SparseBranch ["Sparse Search"]
-            Tokenizer["Underthesea"] --> BM25Okapi[("BM25 (Top 30)")]
-        end
+    subgraph SelfRAG_Loop ["Vòng lặp 2: Self-Correction (Self-RAG)"]
+        direction TB
+        A1["Câu trả lời LLM"] --> CG["Citation Guard"]
+        CG -- "Phát hiện Điều luật ảo giác" --> SC["Self-Correct Feedback"]
+        SC -- "Gửi cảnh báo và yêu cầu sửa" --> GN["Generate Node"]
+        GN --> CG
     end
 
-    HyDE --> DenseEmbed
-    HyDE --> Tokenizer
+    CRAG_Loop -- "Tài liệu đạt chuẩn" --> SelfRAG_Loop
+    SelfRAG_Loop -- "Trích dẫn chuẩn xác 100%" --> OutputSuccess(["Kết quả cuối cùng gửi Client"])
 
-    subgraph FusionRerank ["3. Hợp nhất & Tái xếp hạng"]
-        RRF["RRF Fusion (Top 15)"]
-        Rerank["Cross-Encoder Reranker (Top 3-5)"]
-        SmartWindow["Smart Windowing (Lọc Khoản luật)"]
-        RRF --> Rerank --> SmartWindow
-    end
+    classDef cragStyle fill:#1e1b4b,stroke:#818cf8,stroke-width:2px,color:#f8fafc;
+    classDef selfStyle fill:#431407,stroke:#fb923c,stroke-width:2px,color:#f8fafc;
+    classDef outStyle fill:#14532d,stroke:#4ade80,stroke-width:2px,color:#f8fafc;
 
-    PgVector --> RRF
-    BM25Okapi --> RRF
-
-    subgraph GenerationGuard ["4. Lập luận & Kiểm định"]
-        PromptBuilder["Prompt 4 phần"]
-        LLM["LLM (Qwen 2.5)"]
-        GuardCheck["Citation Guard"]
-        PromptBuilder --> LLM --> GuardCheck
-    end
-
-    SmartWindow --> PromptBuilder
-    GuardCheck --> OutResult(["Output: Câu trả lời 4 phần"])
-
-    classDef inputStyle fill:#0f172a,stroke:#38bdf8,stroke-width:2px,color:#f8fafc;
-    classDef preStyle fill:#1e1b4b,stroke:#818cf8,stroke-width:2px,color:#f8fafc;
-    classDef retStyle fill:#14532d,stroke:#4ade80,stroke-width:2px,color:#f8fafc;
-    classDef fuseStyle fill:#311042,stroke:#c084fc,stroke-width:2px,color:#f8fafc;
-    classDef genStyle fill:#431407,stroke:#fb923c,stroke-width:2px,color:#f8fafc;
-
-    class InQuery,OutResult inputStyle;
-    class Spell,Decomp,HyDE preStyle;
-    class DenseEmbed,PgVector,Tokenizer,BM25Okapi retStyle;
-    class RRF,Rerank,SmartWindow fuseStyle;
-    class PromptBuilder,LLM,GuardCheck genStyle;
+    class Q1,GD,RQ,RT cragStyle;
+    class A1,CG,SC,GN selfStyle;
+    class OutputSuccess outStyle;
 ```
 
 ---
 
 ### Tóm tắt Kỹ thuật Backend
 
-#### 1. LangGraph StateGraph
-- **`LegalAgentState`:** Cấu trúc dữ liệu trung tâm lưu `query`, `intent`, `standalone_query`, `sub_queries`, `retrieved_docs`, `citations`, `answer`, `guard_status`, `history`.
+#### 1. LangGraph StateGraph (Agentic RAG Đa vòng lặp)
+- **`LegalAgentState`:** Cấu trúc dữ liệu trung tâm lưu `query`, `intent`, `standalone_query`, `sub_queries`, `retrieved_docs`, `docs_grade`, `retry_count`, `citations`, `answer`, `guard_status`, `hallucinated_articles`, `correction_feedback`, `hypothetical_passage`, `history`.
 - **Định tuyến (Intent Router):** Phân loại câu hỏi bằng Few-shot LLM rẽ 3 nhánh:
   - `smalltalk` ➔ `Smalltalk Node`: Phản hồi xã giao nhanh, không gọi DB.
   - `out_of_scope` ➔ `Out-of-Scope Node`: Từ chối lịch sự câu hỏi phi pháp luật.
-  - `legal_query` ➔ `Legal RAG Node`: Kích hoạt pipeline tra cứu chuyên sâu.
-- **Kiểm định (Citation Guard Node):** Đối chiếu số hiệu Điều/Khoản sinh ra với văn bản gốc để chống ảo giác trước khi kết thúc (`END`).
+  - `legal_query` ➔ Kích hoạt đồ thị Agentic RAG gồm 7 node con.
+- **Vòng lặp 1 - Corrective RAG (CRAG Loop):**
+  - `grade_documents_node`: Đánh giá mức độ khớp ngữ nghĩa và từ khóa giữa tài liệu và truy vấn.
+  - Nếu tài liệu không đạt yêu cầu ➔ Chuyển qua `rewrite_query_node` để mở rộng thuật ngữ pháp lý và quay lại `retrieve_node` (tối đa 2 lần).
+- **Vòng lặp 2 - Self-Correction (Self-RAG Loop):**
+  - `citation_guard_node`: Đối chiếu toàn bộ số hiệu Điều/Khoản sinh ra với tài liệu gốc trong context.
+  - Nếu phát hiện ảo giác (hallucination) ➔ Chuyển qua `self_correct_node` tạo phản hồi cảnh báo chi tiết và quay lại `generate_node` để LLM sinh lại (tối đa 2 lần).
 - **Trí nhớ phiên:** `MemorySaver Checkpointer` (trạng thái runtime đồ thị) kết hợp `SessionManager` (lưu trữ file JSON bền vững đa phiên).
 
 #### 2. Advanced Hybrid RAG Engine
@@ -153,7 +154,7 @@ flowchart TD
 - **Truy hồi song song:** Dense Search (BGE-M3 qua pgvector PostgreSQL, Top 30) + Sparse Search (BM25 Okapi trên RAM, Top 30).
 - **Hợp nhất RRF:** Hòa trộn thứ hạng với $k=60$ lấy Top 15:
   $$RRF(d) = \frac{1}{60 + \text{rank}_{\text{Dense}}(d)} + \frac{1}{60 + \text{rank}_{\text{BM25}}(d)}$$
-- **Tái xếp hạng:** Cross-Encoder `BGE-Reranker-Large` lọc chọn Top 3-5 Điều luật chuẩn xác nhất.
+- **Tái xếp hạng:** Cross-Encoder `BGE-Reranker-Large` / `FlashRank` lọc chọn Top 3-5 Điều luật chuẩn xác nhất.
 - **Smart Windowing:** Tự động lọc đúng Khoản vi phạm và gom thêm các Khoản hình phạt bổ sung (tước GPLX, tạm giữ phương tiện...).
 - **Tổng hợp 4 phần:** LLM Qwen 2.5 sinh câu trả lời gồm: (1) Kết luận, (2) Căn cứ pháp lý, (3) Phân tích áp dụng (tự động cộng dồn mức phạt nếu đa vi phạm), (4) Hướng dẫn thực tiễn.
 
@@ -201,6 +202,7 @@ legal-qa-system/
 |   |   |-- load_postgres.py    # Script nạp dữ liệu từ JSON vào PostgreSQL
 |   |   `-- interactive_chat.py # Giao diện hỏi đáp trên dòng lệnh (CLI)
 |   |-- tests/                  # Bộ kiểm thử chuyên biệt hệ thống
+|   |   |-- test_agentic_rag.py # Kiểm thử 100% các vòng lặp CRAG & Self-RAG
 |   |   |-- test_api.py         # Kiểm thử toàn diện REST API, Health check & Session
 |   |   |-- test_agent.py       # Kiểm tra luồng chạy agent
 |   |   |-- test_retrieval.py   # Kiểm tra độ chính xác của tầng truy hồi
@@ -212,16 +214,21 @@ legal-qa-system/
 |       |   |-- converter.py    # Chuyển đổi và phân tích cú pháp văn bản
 |       |   `-- crawler.py      # Thu thập dữ liệu văn bản pháp luật
 |       |-- agent/              # Định nghĩa LangGraph Agent & Nodes
-|       |   |-- graph.py        # Đồ thị trạng thái chính của hệ thống
-|       |   |-- state.py        # Định nghĩa cấu trúc AgentState
+|       |   |-- graph.py        # Đồ thị trạng thái chính của hệ thống (10 Nodes)
+|       |   |-- state.py        # Định nghĩa cấu trúc AgentState (Hỗ trợ 2 feedback loops)
 |       |   |-- llm_client.py   # Client kết nối Ollama / vLLM
 |       |   |-- session_manager.py # Quản lý phiên hội thoại
-|       |   `-- nodes/          # Các nút xử lý trong đồ thị
-|       |       |-- intent_router.py       # Phân loại ý định người dùng
-|       |       |-- legal_rag_node.py      # Lõi truy hồi và xử lý pháp lý
-|       |       |-- smalltalk_node.py      # Xử lý chào hỏi xã giao
-|       |       |-- out_of_scope_node.py   # Xử lý từ chối ngoài phạm vi
-|       |       `-- citation_guard_node.py # Kiểm định căn cứ & chống ảo giác
+|       |   `-- nodes/          # 10 Nút xử lý mô-đun trong đồ thị Agentic RAG
+|       |       |-- intent_router.py        # 1. Phân loại ý định người dùng
+|       |       |-- smalltalk_node.py       # 2. Xử lý chào hỏi xã giao
+|       |       |-- out_of_scope_node.py    # 3. Xử lý từ chối ngoài phạm vi
+|       |       |-- decompose_node.py       # 4. Sửa chính tả, tách đa vi phạm & HyDE
+|       |       |-- retrieve_node.py        # 5. Thực thi truy hồi đa truy vấn
+|       |       |-- grade_documents_node.py # 6. Thẩm định độ phù hợp tài liệu (CRAG)
+|       |       |-- rewrite_query_node.py   # 7. Mở rộng & viết lại truy vấn (CRAG Loop)
+|       |       |-- generate_node.py        # 8. Sinh câu trả lời chuẩn 4 phần
+|       |       |-- citation_guard_node.py  # 9. Kiểm định trích dẫn thực tế
+|       |       `-- self_correct_node.py    # 10. Phản hồi tự sửa sai (Self-RAG Loop)
 |       |-- api/
 |       |   `-- main.py         # Điểm khởi chạy FastAPI, định tuyến REST và SSE
 |       |-- retrieval/          # Tầng truy xuất dữ liệu (Hybrid RAG Engine)

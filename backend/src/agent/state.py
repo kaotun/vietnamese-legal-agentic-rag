@@ -19,4 +19,9 @@ class LegalAgentState(TypedDict):
     followup_questions: Optional[List[str]]  # 3 câu hỏi gợi ý đào sâu theo ngữ cảnh
     is_multi_violation: Optional[bool]  # Cờ nhận diện câu hỏi chứa nhiều hành vi vi phạm
     sub_queries: Optional[List[str]]  # Danh sách các truy vấn con sau khi phân rã
+    hypothetical_passage: Optional[str]  # Đoạn văn bản luật giả định (HyDE)
+    docs_grade: Optional[str]  # Đánh giá tài liệu: "relevant" | "irrelevant"
+    retry_count: int  # Đếm số lần lặp phản hồi (tối đa 2 để tránh lặp vô hạn)
+    hallucinated_articles: Optional[List[str]]  # Danh sách điều luật bị ảo giác phát hiện bởi Guard
+    correction_feedback: Optional[str]  # Hướng dẫn điều chỉnh gửi cho LLM ở vòng lặp Self-Correction
     error: Optional[str]

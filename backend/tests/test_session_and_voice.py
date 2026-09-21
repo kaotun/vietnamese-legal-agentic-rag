@@ -109,7 +109,8 @@ async def main():
     # 6. KIỂM THỬ TÍCH HỢP GIỌNG NÓI (VOICE AI: TTS)
     # --------------------------------------------------------------------------
     print("\n--- [BƯỚC 6] KIỂM THỬ SINH GIỌNG NÓI TIẾNG VIỆT (MICROSOFT EDGE-TTS) ---")
-    sample_text = res_a1["answer"][:300]
+    # Lấy phần kết luận đầu tiên để tổng hợp giọng nói
+    sample_text = res_a1["answer"].split("### 2.")[0].strip() if "### 2." in res_a1["answer"] else res_a1["answer"][:150]
     print(f"📄 Văn bản gốc: {sample_text[:100]}...")
     cleaned_tts = clean_text_for_tts(sample_text)
     print(f"🧹 Văn bản sau khi lọc markdown: {cleaned_tts[:100]}...")

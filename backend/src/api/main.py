@@ -156,21 +156,22 @@ async def lookup_article(citation: str):
             "score": 1.0,
         }
 
-    # Fallback BM25
-    bm25_matches = agent_instance.retriever.keyword_store.search(citation_clean, top_k=1)
-    if bm25_matches:
-        best = dict(bm25_matches[0][0])
-        return {
-            "id": best.get("id"),
-            "article": best.get("article"),
-            "article_title": best.get("article_title"),
-            "law_name": best.get("law_name"),
-            "doc_type": best.get("doc_type"),
-            "content": best.get("content"),
-            "text": best.get("content"),
-            "article_number": f"{best.get('article')}: {best.get('article_title')}" if best.get("article_title") else best.get("article"),
-            "score": 0.9,
-        }
+    # Fallback BM25 chỉ khi không chỉ định số Điều cụ thể (hoặc tra cứu theo từ khóa)
+    if not target_num:
+        bm25_matches = agent_instance.retriever.keyword_store.search(citation_clean, top_k=1)
+        if bm25_matches and bm25_matches[0][1] > 1.0:
+            best = dict(bm25_matches[0][0])
+            return {
+                "id": best.get("id"),
+                "article": best.get("article"),
+                "article_title": best.get("article_title"),
+                "law_name": best.get("law_name"),
+                "doc_type": best.get("doc_type"),
+                "content": best.get("content"),
+                "text": best.get("content"),
+                "article_number": f"{best.get('article')}: {best.get('article_title')}" if best.get("article_title") else best.get("article"),
+                "score": 0.9,
+            }
 
     raise HTTPException(status_code=404, detail="Không tìm thấy toàn văn điều luật")
 

@@ -44,15 +44,20 @@ def clean_text_for_tts(text: str, max_chars: int = 800) -> str:
     # Loại bỏ dấu câu ở đầu chuỗi (tránh lỗi NoAudioReceived trên Edge-TTS)
     cleaned = re.sub(r"^[\s\.\,\;\:\?\!\-]+", "", cleaned).strip()
 
-    # Cắt gọn độ dài tối ưu nếu văn bản quá dài để tránh phát sinh độ trễ mạng quốc tế
+    # Cắt gọn độ dài tối ưu nếu văn bản quá dài theo ranh giới câu hoặc từ
     if len(cleaned) > max_chars:
         cutoff = cleaned[:max_chars].rfind(".")
         if cutoff > max_chars // 2:
             cleaned = cleaned[:cutoff + 1]
         else:
-            cleaned = cleaned[:max_chars] + "..."
+            # Tìm khoảng trắng gần nhất để không cắt đứt từ UTF-8
+            space_cutoff = cleaned[:max_chars].rfind(" ")
+            if space_cutoff > 0:
+                cleaned = cleaned[:space_cutoff] + "."
+            else:
+                cleaned = cleaned[:max_chars]
 
-    return cleaned
+    return cleaned.strip()
 
 
 async def text_to_speech_bytes(
@@ -66,20 +71,31 @@ async def text_to_speech_bytes(
     if not sanitized_text:
         raise ValueError("Văn bản sau khi làm sạch bị trống, không thể tạo âm thanh.")
 
-    communicate = edge_tts.Communicate(
-        text=sanitized_text,
-        voice=voice,
-        rate=rate,
-        pitch=pitch,
-    )
+    try:
+        communicate = edge_tts.Communicate(
+            text=sanitized_text,
+            voice=voice,
+            rate=rate,
+            pitch=pitch,
+        )
 
-    audio_buffer = bytearray()
-    async for chunk in communicate.stream():
-        if chunk["type"] == "audio":
-            audio_buffer.extend(chunk["data"])
+        audio_buffer = bytearray()
+        async for chunk in communicate.stream():
+            if chunk["type"] == "audio":
+                audio_buffer.extend(chunk["data"])
 
-    logger.info(f"Đã tạo âm thanh TTS ({len(audio_buffer)} bytes) với giọng '{voice}'")
-    return bytes(audio_buffer)
+        logger.info(f"Đã tạo âm thanh TTS ({len(audio_buffer)} bytes) với giọng '{voice}'")
+        return bytes(audio_buffer)
+    except Exception as e:
+        logger.warning(f"Edge-TTS gặp lỗi ({e}), thực hiện retry với câu tóm lược...")
+        # Fallback với câu tóm tắt ngắn hơn
+        fallback_text = sanitized_text.split(".")[0] if "." in sanitized_text else sanitized_text[:80]
+        communicate = edge_tts.Communicate(text=fallback_text, voice=voice)
+        audio_buffer = bytearray()
+        async for chunk in communicate.stream():
+            if chunk["type"] == "audio":
+                audio_buffer.extend(chunk["data"])
+        return bytes(audio_buffer)
 
 
 async def stream_text_to_speech(
