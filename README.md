@@ -30,59 +30,52 @@ Hệ thống kết hợp **LangGraph StateGraph** (điều phối đa tác nhân
 
 ---
 
-### Sơ đồ 1: Luồng điều phối LangGraph (StateGraph Workflow)
+### Sơ đồ Tổng thể Kiến trúc Hệ thống Agentic RAG Đa vòng lặp (Unified Architecture & Feedback Loops)
 
 ```mermaid
 flowchart TD
-    Client["React Web UI"] --> Gateway["FastAPI Gateway"]
-    Gateway --> START([START])
-
-### Sơ đồ 1: Kiến trúc Hệ thống Agentic RAG Đa vòng lặp (CRAG & Self-RAG)
-
-```mermaid
-flowchart TD
-    Client["Client / Người dùng (Web UI / Voice)"] --> Gateway["API Gateway (FastAPI)"]
+    Client["Client / Người dùng (Web UI & Voice AI)"] --> Gateway["API Gateway (FastAPI)"]
     Gateway --> START([START])
 
     subgraph LangGraph ["LangGraph StateGraph (Agentic RAG Engine)"]
         START --> Router{"1. Intent Router"}
         Checkpointer[("MemorySaver")] -.-> Router
 
-        Router -->|smalltalk| Smalltalk["2. Smalltalk Node"]
-        Router -->|out_of_scope| OutScope["3. Out-of-Scope Node"]
-        Router -->|legal_query| Decompose["4. Decompose Node<br/>(Spell + Tách vi phạm + HyDE)"]
+        Router -->|smalltalk| Smalltalk["2. Smalltalk Node<br/>(Chào hỏi xã giao)"]
+        Router -->|out_of_scope| OutScope["3. Out-of-Scope Node<br/>(Từ chối ngoài phạm vi)"]
+        Router -->|legal_query| Decompose["4. Decompose Node<br/>(Sửa chính tả + Tách đa vi phạm + HyDE)"]
 
         Decompose --> Retrieve["5. Retrieve Node<br/>(BM25 + pgvector + RRF + Reranker)"]
-        Retrieve --> GradeDocs{"6. Grade Documents Node<br/>(Thẩm định độ phù hợp)"}
+        Retrieve --> GradeDocs{"6. Grade Documents Node<br/>(Thẩm định độ phù hợp tài liệu)"}
 
-        %% VÒNG LẶP 1: Corrective RAG (CRAG)
-        GradeDocs -->|"Không phù hợp (Score thấp)<br/>[CRAG Loop 1]"| RewriteQuery["7. Rewrite Query Node<br/>(Mở rộng & Viết lại thuật ngữ)"]
-        RewriteQuery -->|Truy hồi lại| Retrieve
+        %% VÒNG LẶP 1: Corrective RAG (CRAG Loop)
+        GradeDocs -->|"Chưa tối ưu (Rerank score thấp)<br/><b>[Vòng lặp 1: CRAG Loop]</b>"| RewriteQuery["7. Rewrite Query Node<br/>(Mở rộng & Viết lại thuật ngữ)"]
+        RewriteQuery -->|"Truy hồi lại với query mới"| Retrieve
 
-        GradeDocs -->|"Đạt chuẩn"| Generate["8. Generate Node<br/>(Smart Windowing + LLM 4 phần)"]
-        Generate --> CitationGuard{"9. Citation Guard Node<br/>(Kiểm định trích dẫn)"}
+        GradeDocs -->|"Tài liệu đạt chuẩn"| Generate["8. Generate Node<br/>(Smart Windowing + LLM 4 phần)"]
+        Generate --> CitationGuard{"9. Citation Guard Node<br/>(Kiểm định trích dẫn thực tế)"}
 
-        %% VÒNG LẶP 2: Self-Correction (Self-RAG)
-        CitationGuard -->|"Phát hiện trích dẫn ảo<br/>[Self-RAG Loop 2]"| SelfCorrect["10. Self-Correct Node<br/>(Phản hồi nhắc nhở LLM)"]
-        SelfCorrect -->|Sinh lại câu trả lời| Generate
+        %% VÒNG LẶP 2: Self-Correction (Self-RAG Loop)
+        CitationGuard -->|"Phát hiện trích dẫn ảo giác<br/><b>[Vòng lặp 2: Self-RAG Loop]</b>"| SelfCorrect["10. Self-Correct Node<br/>(Phản hồi cảnh báo & Yêu cầu sửa)"]
+        SelfCorrect -->|"Sinh lại câu trả lời theo ngữ cảnh"| Generate
 
-        CitationGuard -->|"Hợp lệ 100%"| END([END])
+        CitationGuard -->|"Trích dẫn hợp lệ 100%"| END([END])
         Smalltalk --> END
         OutScope --> END
     end
 
-    subgraph Storage ["Storage & Knowledge"]
-        DB[("PostgreSQL (pgvector)")]
-        BM25Cache[("BM25 Index Cache")]
-        Sessions[("Session Storage")]
+    subgraph Storage ["Storage & Knowledge Layer"]
+        DB[("PostgreSQL (pgvector 1024d)")]
+        BM25Cache[("BM25 Okapi Index")]
+        Sessions[("Session Storage (JSON)")]
     end
 
-    Retrieve -.-> DB
-    Retrieve -.-> BM25Cache
-    CitationGuard -.-> DB
-    Gateway -.-> Sessions
+    Retrieve -.->|"Dense Vector Search"| DB
+    Retrieve -.->|"Sparse Keyword Search"| BM25Cache
+    CitationGuard -.->|"Tra cứu kiểm định điều luật"| DB
+    Gateway -.->|"Lưu trữ & Khôi phục lịch sử"| Sessions
 
-    END --> Output["Phản hồi người dùng"]
+    END --> Output["Phản hồi hoàn chỉnh gửi Client<br/>(Cấu trúc 4 phần + Căn cứ + Giọng nói TTS)"]
 
     classDef clientStyle fill:#0f172a,stroke:#38bdf8,stroke-width:2px,color:#f8fafc;
     classDef graphStyle fill:#1e1b4b,stroke:#818cf8,stroke-width:2px,color:#f8fafc;
@@ -95,40 +88,6 @@ flowchart TD
     class Decompose,Retrieve,Generate ragStyle;
     class GradeDocs,RewriteQuery,CitationGuard,SelfCorrect loopStyle;
     class DB,BM25Cache,Sessions dbStyle;
-```
-
----
-
-### Sơ đồ 2: Luồng Tự Động Phản Hồi & Tự Sửa Sai (CRAG & Self-RAG Loops)
-
-```mermaid
-flowchart LR
-    subgraph CRAG_Loop ["Vòng lặp 1: Corrective RAG (CRAG)"]
-        direction TB
-        Q1["Tài liệu truy hồi"] --> GD["Grade Documents"]
-        GD -- "Độ khớp < Ngưỡng" --> RQ["Rewrite Query"]
-        RQ -- "Truy hồi lại với câu hỏi mở rộng" --> RT["Retrieve"]
-        RT --> GD
-    end
-
-    subgraph SelfRAG_Loop ["Vòng lặp 2: Self-Correction (Self-RAG)"]
-        direction TB
-        A1["Câu trả lời LLM"] --> CG["Citation Guard"]
-        CG -- "Phát hiện Điều luật ảo giác" --> SC["Self-Correct Feedback"]
-        SC -- "Gửi cảnh báo và yêu cầu sửa" --> GN["Generate Node"]
-        GN --> CG
-    end
-
-    CRAG_Loop -- "Tài liệu đạt chuẩn" --> SelfRAG_Loop
-    SelfRAG_Loop -- "Trích dẫn chuẩn xác 100%" --> OutputSuccess(["Kết quả cuối cùng gửi Client"])
-
-    classDef cragStyle fill:#1e1b4b,stroke:#818cf8,stroke-width:2px,color:#f8fafc;
-    classDef selfStyle fill:#431407,stroke:#fb923c,stroke-width:2px,color:#f8fafc;
-    classDef outStyle fill:#14532d,stroke:#4ade80,stroke-width:2px,color:#f8fafc;
-
-    class Q1,GD,RQ,RT cragStyle;
-    class A1,CG,SC,GN selfStyle;
-    class OutputSuccess outStyle;
 ```
 
 ---
