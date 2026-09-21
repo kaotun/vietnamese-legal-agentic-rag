@@ -34,54 +34,62 @@ Hệ thống kết hợp **LangGraph StateGraph** (điều phối đa tác nhân
 
 ```mermaid
 flowchart TD
+    %% TẦNG GIAO DIỆN & API GATEWAY
     Client["Client / Người dùng (Web UI & Voice AI)"] --> Gateway["API Gateway (FastAPI)"]
+    Gateway <--> Sessions[("Session Storage<br/>(Multi-Session JSON)")]
     Gateway --> START([START])
 
-    subgraph LangGraph ["LangGraph StateGraph (Agentic RAG Engine)"]
+    %% TẦNG ĐIỀU PHỐI LANGGRAPH
+    subgraph LangGraph ["HỆ THỐNG ĐIỀU PHỐI AGENTIC RAG (LANGGRAPH STATEGRAPH)"]
         START --> Router{"1. Intent Router"}
         Checkpointer[("MemorySaver")] -.-> Router
 
         Router -->|smalltalk| Smalltalk["2. Smalltalk Node<br/>(Chào hỏi xã giao)"]
         Router -->|out_of_scope| OutScope["3. Out-of-Scope Node<br/>(Từ chối ngoài phạm vi)"]
-        Router -->|legal_query| Decompose["4. Decompose Node<br/>(Sửa chính tả + Tách đa vi phạm + HyDE)"]
+        Router -->|legal_query| Decompose["4. Decompose Node<br/>(Sửa chính tả, Tách vi phạm, HyDE)"]
 
-        Decompose --> Retrieve["5. Retrieve Node<br/>(BM25 + pgvector + RRF + Reranker)"]
-        Retrieve --> GradeDocs{"6. Grade Documents Node<br/>(Thẩm định độ phù hợp tài liệu)"}
+        %% VÒNG LẶP 1: CRAG LOOP
+        subgraph Stage_Retrieval ["GIAI ĐOẠN 1: TRUY HỒI & CORRECTIVE RAG (CRAG LOOP)"]
+            direction TB
+            Decompose --> Retrieve["5. Retrieve Node<br/>(BM25 + pgvector + Rerank)"]
+            Retrieve --> GradeDocs{"6. Grade Docs<br/>(Thẩm định tài liệu)"}
+            
+            GradeDocs -->|Chưa đạt| RewriteQuery["7. Rewrite Query Node<br/>(Mở rộng & Viết lại thuật ngữ)"]
+            RewriteQuery -->|Truy hồi lại| Retrieve
+        end
 
-        %% VÒNG LẶP 1: Corrective RAG (CRAG Loop)
-        GradeDocs -->|"Chưa tối ưu (Rerank score thấp)<br/><b>[Vòng lặp 1: CRAG Loop]</b>"| RewriteQuery["7. Rewrite Query Node<br/>(Mở rộng & Viết lại thuật ngữ)"]
-        RewriteQuery -->|"Truy hồi lại với query mới"| Retrieve
+        %% VÒNG LẶP 2: SELF-RAG LOOP
+        subgraph Stage_Generation ["GIAI ĐOẠN 2: LẬP LUẬN & SELF-CORRECTION (SELF-RAG LOOP)"]
+            direction TB
+            GradeDocs -->|Đạt chuẩn| Generate["8. Generate Node<br/>(Smart Windowing + LLM 4 phần)"]
+            Generate --> CitationGuard{"9. Citation Guard<br/>(Kiểm định trích dẫn)"}
+            
+            CitationGuard -->|Có ảo giác| SelfCorrect["10. Self-Correct Node<br/>(Phản hồi yêu cầu sửa)"]
+            SelfCorrect -->|Sinh lại| Generate
+        end
 
-        GradeDocs -->|"Tài liệu đạt chuẩn"| Generate["8. Generate Node<br/>(Smart Windowing + LLM 4 phần)"]
-        Generate --> CitationGuard{"9. Citation Guard Node<br/>(Kiểm định trích dẫn thực tế)"}
-
-        %% VÒNG LẶP 2: Self-Correction (Self-RAG Loop)
-        CitationGuard -->|"Phát hiện trích dẫn ảo giác<br/><b>[Vòng lặp 2: Self-RAG Loop]</b>"| SelfCorrect["10. Self-Correct Node<br/>(Phản hồi cảnh báo & Yêu cầu sửa)"]
-        SelfCorrect -->|"Sinh lại câu trả lời theo ngữ cảnh"| Generate
-
-        CitationGuard -->|"Trích dẫn hợp lệ 100%"| END([END])
+        CitationGuard -->|Hợp lệ 100%| END([END])
         Smalltalk --> END
         OutScope --> END
     end
 
-    subgraph Storage ["Storage & Knowledge Layer"]
-        DB[("PostgreSQL (pgvector 1024d)")]
-        BM25Cache[("BM25 Okapi Index")]
-        Sessions[("Session Storage (JSON)")]
+    %% TẦNG DỮ LIỆU PHÁP LÝ (KẾT NỐI TRỰC TIẾP VỚI RETRIEVE NODE)
+    subgraph Storage ["TẦNG DỮ LIỆU & TRI THỨC PHÁP LÝ"]
+        DB[("PostgreSQL 17 (pgvector)<br/>13,744 Điều luật")]
+        BM25Cache[("BM25 Okapi Index<br/>bm25_index_cache.json")]
     end
 
-    Retrieve -.->|"Dense Vector Search"| DB
-    Retrieve -.->|"Sparse Keyword Search"| BM25Cache
-    CitationGuard -.->|"Tra cứu kiểm định điều luật"| DB
-    Gateway -.->|"Lưu trữ & Khôi phục lịch sử"| Sessions
+    Retrieve <-->|Dense Search| DB
+    Retrieve <-->|Sparse Search| BM25Cache
 
-    END --> Output["Phản hồi hoàn chỉnh gửi Client<br/>(Cấu trúc 4 phần + Căn cứ + Giọng nói TTS)"]
+    END --> Output["Phản hồi hoàn chỉnh gửi Client<br/>(Cấu trúc 4 phần chuẩn + Giọng nói TTS)"]
 
+    %% STYLING
     classDef clientStyle fill:#0f172a,stroke:#38bdf8,stroke-width:2px,color:#f8fafc;
     classDef graphStyle fill:#1e1b4b,stroke:#818cf8,stroke-width:2px,color:#f8fafc;
     classDef ragStyle fill:#14532d,stroke:#4ade80,stroke-width:2px,color:#f8fafc;
-    classDef loopStyle fill:#701a75,stroke:#f472b6,stroke-width:2px,color:#f8fafc;
-    classDef dbStyle fill:#311042,stroke:#c084fc,stroke-width:2px,color:#f8fafc;
+    classDef loopStyle fill:#4a044e,stroke:#f472b6,stroke-width:2px,color:#f8fafc;
+    classDef dbStyle fill:#1e293b,stroke:#94a3b8,stroke-width:2px,color:#f8fafc;
 
     class Client,Gateway,Output clientStyle;
     class START,Router,Smalltalk,OutScope,Checkpointer,END graphStyle;
