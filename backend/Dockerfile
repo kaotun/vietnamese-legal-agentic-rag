@@ -17,9 +17,12 @@ RUN pip install --no-cache-dir --upgrade pip && \
 # Sao chép mã nguồn và dữ liệu
 COPY src/ ./src/
 COPY data/ ./data/
+COPY scripts/ ./scripts/
 
 # Cấu hình biến môi trường mặc định
 ENV PYTHONUNBUFFERED=1
+ENV PYTHONIOENCODING=utf-8
+ENV LANG=C.UTF-8
 ENV PYTHONPATH=/app
 
 EXPOSE 8000

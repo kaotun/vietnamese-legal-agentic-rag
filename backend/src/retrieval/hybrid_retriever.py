@@ -17,16 +17,26 @@ logger = logging.getLogger(__name__)
 class HybridLegalRetriever:
     """Bộ truy hồi hỗn hợp kết hợp ngữ nghĩa, từ khóa và Reranker cho hệ thống pháp luật."""
 
-    def __init__(self, reranker: Optional[LegalReranker] = None):
+    def __init__(self, reranker: Optional[LegalReranker] = None, pool: Any | None = None):
         self.settings = get_settings()
+        self.pool = pool
         self.keyword_store = BM25KeywordStore()
-        self.vector_client = EmbeddingsClient()
+        self.vector_client = EmbeddingsClient(pool=self.pool)
         self.reranker = reranker or LegalReranker()
         self.records: List[Dict[str, Any]] = []
         self._is_ready = False
+        self._vector_enabled = False  # Bật sau khi xác nhận cột embedding tồn tại
 
-    async def initialize(self) -> None:
-        """Đọc records từ PostgreSQL và dựng/nạp BM25 cache."""
+    def set_pool(self, pool: Any) -> None:
+        """Thiết lập asyncpg.Pool và truyền cho vector_client."""
+        self.pool = pool
+        self.vector_client.pool = pool
+
+    async def initialize(self, pool: Any | None = None) -> None:
+        """Đọc records từ PostgreSQL, dựng BM25 cache và xác nhận pgvector sẵn sàng."""
+        if pool:
+            self.set_pool(pool)
+
         if self._is_ready:
             return
 
@@ -34,12 +44,43 @@ class HybridLegalRetriever:
         table_name = "legal_knowledge_records"
         logger.info(f"Kết nối tới PostgreSQL để đọc văn bản luật: {db_url}")
 
+        select_sql = (
+            f"SELECT id, law_id, law_name, doc_type, article, article_title, content, author, "
+            f"COALESCE(validity_status, 'active') as validity_status, effective_date, expiration_date "
+            f"FROM {table_name} "
+            f"WHERE COALESCE(validity_status, 'active') IN ('active', 'partially_expired') "
+            f"ORDER BY id ASC;"
+        )
+        col_check_sql = (
+            "SELECT COUNT(*) FROM information_schema.columns "
+            "WHERE table_name = $1 AND column_name = 'embedding';"
+        )
+
         try:
-            conn = await asyncpg.connect(db_url)
-            rows = await conn.fetch(f"SELECT id, law_id, law_name, doc_type, article, article_title, content, author FROM {table_name} ORDER BY id ASC;")
-            await conn.close()
+            if self.pool:
+                async with self.pool.acquire() as conn:
+                    rows = await conn.fetch(select_sql)
+                    col_check = await conn.fetchval(col_check_sql, table_name)
+            else:
+                conn = await asyncpg.connect(db_url)
+                try:
+                    rows = await conn.fetch(select_sql)
+                    col_check = await conn.fetchval(col_check_sql, table_name)
+                finally:
+                    await conn.close()
 
             self.records = [dict(r) for r in rows]
+            self._vector_enabled = (col_check or 0) > 0
+
+
+            if self._vector_enabled:
+                logger.info("[Retriever] Cột 'embedding' tồn tại → pgvector search được kích hoạt.")
+            else:
+                logger.warning(
+                    "[Retriever] Cột 'embedding' CHƯA tồn tại → chỉ dùng BM25. "
+                    "Chạy script 'add_vector_column.py' để kích hoạt Hybrid Search đầy đủ."
+                )
+
             logger.info(f"Đã đọc {len(self.records)} Điều luật từ cơ sở dữ liệu.")
 
             # Nạp hoặc xây dựng BM25 index
@@ -108,29 +149,48 @@ class HybridLegalRetriever:
             # Hợp nhất danh sách ứng viên qua RRF nội bộ
             bm25_candidates = self.rrf_fusion(bm25_candidates, hyde_candidates, top_k=candidate_pool_size)
 
-        # 3. Tìm theo Vector Embedding (nếu endpoint khả dụng)
+        # 3. Tìm theo Vector Embedding qua pgvector (nếu cột embedding đã có)
         vector_candidates: List[Dict[str, Any]] = []
-        try:
-            target_embed_text = hypothetical_passage if hypothetical_passage else query
-            query_vector = await self.vector_client.embed_query(target_embed_text)
-            if query_vector:
-                # Vector search logic nếu có pgvector index
-                pass
-        except Exception as e:
-            logger.warning(f"[Retrieval] Vector search lỗi hoặc không khả dụng: {e}")
+        if self._vector_enabled:
+            try:
+                db_url = self.settings.legal_assistant.postgres.database_url
+                target_embed_text = hypothetical_passage if hypothetical_passage else query
+                query_vector = await self.vector_client.embed_query(target_embed_text)
+                if query_vector:
+                    vector_candidates = await self.vector_client.vector_search(
+                        db_url=db_url,
+                        query_vector=query_vector,
+                        top_k=candidate_pool_size,
+                        pool=self.pool,
+                    )
+
+                    logger.info(f"[Retrieval] pgvector trả về {len(vector_candidates)} ứng viên.")
+            except Exception as e:
+                logger.warning(f"[Retrieval] pgvector search lỗi hoặc không khả dụng: {e}")
+        else:
+            logger.debug("[Retrieval] pgvector bị tắt (chưa có cột embedding), chỉ dùng BM25.")
 
         # 4. Hợp nhất RRF
         if vector_candidates:
             fused_candidates = self.rrf_fusion(bm25_candidates, vector_candidates, top_k=candidate_pool_size)
+            logger.info(f"[Retrieval] RRF fusion BM25 ({len(bm25_candidates)}) + Vector ({len(vector_candidates)}) → {len(fused_candidates)} ứng viên.")
         else:
             fused_candidates = bm25_candidates[:candidate_pool_size]
 
         # 5. Tái xếp hạng bằng Cross-Encoder Reranker
         if apply_rerank and self.reranker and self.reranker.enabled:
-            reranked = await self.reranker.rerank(query=query, documents=fused_candidates, top_n=top_k)
-            return reranked
+            final_docs = await self.reranker.rerank(query=query, documents=fused_candidates, top_n=top_k)
+        else:
+            final_docs = fused_candidates[:top_k]
 
-        return fused_candidates[:top_k]
+        # 6. Gắn nhãn cảnh báo hiệu lực văn bản pháp lý
+        for d in final_docs:
+            if d.get("validity_status") == "expired":
+                title = d.get("article_title") or ""
+                if not title.startswith("[HẾT HIỆU LỰC]"):
+                    d["article_title"] = f"[HẾT HIỆU LỰC] {title}"
+
+        return final_docs
 
     async def search_multi_queries(
         self,

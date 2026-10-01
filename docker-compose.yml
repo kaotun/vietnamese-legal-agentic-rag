@@ -8,7 +8,7 @@ services:
       - "23432:5432"
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       POSTGRES_DB: legal_assistant
     volumes:
       - legal_qa_postgres_data:/var/lib/postgresql/data
@@ -27,8 +27,14 @@ services:
     ports:
       - "8000:8000"
     environment:
-      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/legal_assistant
-      OLLAMA_BASE_URL: http://host.docker.internal:11434/v1
+      CONFIG_PATH: /app/config.yaml
+      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:-postgres}@postgres:5432/legal_assistant
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434/v1}
+      CORS_ORIGINS: "http://localhost:3000,http://localhost:5173,http://127.0.0.1:3000,http://127.0.0.1:5173"
+    volumes:
+      - ./config.yaml:/app/config.yaml:ro
+      - backend_sessions:/app/data/sessions
+      - backend_cache:/app/data/cache
     depends_on:
       postgres:
         condition: service_healthy
@@ -47,3 +53,5 @@ services:
 
 volumes:
   legal_qa_postgres_data:
+  backend_sessions:
+  backend_cache:

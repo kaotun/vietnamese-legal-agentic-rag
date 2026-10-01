@@ -1,5 +1,5 @@
 # ==============================================================================
-# Trợ lý Hỏi đáp Pháp luật Việt Nam (v3.0) — Cấu hình tập trung duy nhất
+# Trợ lý Hỏi đáp Pháp luật Việt Nam  — Cấu hình tập trung duy nhất
 # ==============================================================================
 
 app:
@@ -8,7 +8,7 @@ app:
 
 ui:
   host: 0.0.0.0
-  port: 5173
+  port: 3000
 
 llm:
   base_url: http://localhost:11434/v1    # Ollama OpenAI-compatible endpoint
@@ -41,6 +41,11 @@ legal_assistant:
     top_n: 5
     base_url: http://localhost:8025
     endpoint: /v1/rerank
+  tts:
+    enabled: true                        # Bật/tắt dịch vụ đọc giọng nói
+    provider: edge-tts                   # edge-tts (cần kết nối bên ngoài) | local_http (có thể offline nếu có TTS server nội bộ)
+    base_url: http://localhost:8028/v1/audio/speech  # Endpoint khi dùng provider: local_http (Piper / Kokoro / LocalAI)
+    default_voice: vi-VN-HoaiMyNeural    # Giọng mặc định: vi-VN-HoaiMyNeural | vi-VN-NamMinhNeural
   batch_eval:
     enabled: false
     max_concurrency: 4

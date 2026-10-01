@@ -24,4 +24,11 @@ class LegalAgentState(TypedDict):
     retry_count: int  # Đếm số lần lặp phản hồi (tối đa 2 để tránh lặp vô hạn)
     hallucinated_articles: Optional[List[str]]  # Danh sách điều luật bị ảo giác phát hiện bởi Guard
     correction_feedback: Optional[str]  # Hướng dẫn điều chỉnh gửi cho LLM ở vòng lặp Self-Correction
+    premise_correction: Optional[Dict[str, Any]]  # Cảnh báo đính chính tiền đề sai (False Premise)
+    legal_facts: Optional[Dict[str, Any]]  # Thực thể sự kiện pháp lý bóc tách (tuổi, hành vi, thương tích...)
+    eligibility_status: Optional[str]  # Trạng thái điều kiện áp dụng: "ALLOWED" | "BLOCKED" | "REQUIRE_CONDITION"
+    blocking_factors: Optional[List[str]]  # Các yếu tố cản trở / chặn áp dụng (ví dụ: ["age"])
+    applicable_rules: Optional[List[Dict[str, Any]]]  # Danh sách quy tắc pháp lý CSDL được kích hoạt
+    fact_ambiguities: Optional[List[str]]  # Cảnh báo mơ hồ dữ kiện (ví dụ: "trọng thương" chưa có tỷ lệ %)
+    legal_decision: Optional[Dict[str, Any]]  # Kết luận pháp lý chính thức từ Rule Engine
     error: Optional[str]

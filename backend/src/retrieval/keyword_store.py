@@ -61,11 +61,16 @@ class BM25KeywordStore:
             except Exception as e:
                 logger.warning(f"Không thể đọc BM25 cache, sẽ xây dựng lại: {e}")
 
-        # Xây dựng mới
+        # Xây dựng mới với weighting ưu tiên Số hiệu Điều và Tiêu đề Điều luật
         logger.info(f"Đang xây dựng BM25 index cho {len(records)} văn bản luật...")
         tokenized_corpus: List[List[str]] = []
         for r in records:
-            searchable_text = f"{r.get('law_name', '')} {r.get('article_title', '')} {r.get('content', '')}"
+            art = r.get("article", "")
+            title = r.get("article_title", "")
+            law = r.get("law_name", "")
+            content = r.get("content", "")
+            # Boost số hiệu điều và tiêu đề điều luật x2 để tăng recall khi truy vấn trực tiếp
+            searchable_text = f"{art} {art} {title} {title} {law} {content}"
             tokens = tokenize_vietnamese(searchable_text)
             tokenized_corpus.append(tokens)
 
@@ -83,6 +88,21 @@ class BM25KeywordStore:
             logger.info(f"-> Đã lưu BM25 cache vào: {self.cache_file}")
         except Exception as e:
             logger.warning(f"Lỗi khi lưu BM25 cache: {e}")
+
+    def invalidate_cache(self) -> None:
+        """Xóa file cache đĩa để buộc tính toán lại chỉ mục ở lần khởi tạo kế tiếp."""
+        try:
+            if self.cache_file.exists():
+                self.cache_file.unlink()
+                logger.info(f"[BM25] Đã xóa cache đĩa: {self.cache_file}")
+        except Exception as e:
+            logger.warning(f"[BM25] Không thể xóa file cache: {e}")
+
+    def reload(self, records: List[Dict[str, Any]]) -> None:
+        """Nạp lại chỉ mục BM25 trực tiếp trên RAM khi có dữ liệu mới."""
+        self.invalidate_cache()
+        self.build_or_load(records)
+
 
     def search(self, query: str, top_k: int = 20) -> List[Tuple[Dict[str, Any], float]]:
         """Tìm kiếm các Điều luật liên quan nhất theo BM25."""

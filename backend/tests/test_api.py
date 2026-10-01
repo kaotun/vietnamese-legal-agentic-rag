@@ -21,7 +21,11 @@ if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
 
 from fastapi.testclient import TestClient
+from src.config import get_settings
 from src.api.main import app
+
+settings = get_settings()
+
 
 
 def test_health_check(client: TestClient) -> None:
@@ -48,6 +52,25 @@ def test_voice_voices(client: TestClient) -> None:
     assert "vi-VN-HoaiMyNeural" in voice_ids, "Missing female voice HoaiMy"
     assert "vi-VN-NamMinhNeural" in voice_ids, "Missing male voice NamMinh"
     print(f"  [PASS] GET /voice/voices -> 200 OK | {len(voices)} giọng đọc tiếng Việt khả dụng")
+
+
+def test_voice_tts_validation(client: TestClient) -> None:
+    """2b. Kiểm thử validation và phản hồi của endpoint /voice/tts."""
+    # 1. Gửi chuỗi trống -> Kỳ vọng 400 Bad Request
+    empty_res = client.post("/voice/tts", json={"text": "   "})
+    assert empty_res.status_code == 400, f"Expected 400 for empty text, got {empty_res.status_code}"
+    print("  [PASS] POST /voice/tts (Văn bản trống) -> 400 Bad Request")
+
+    # 2. Kiểm tra khi tts.enabled = False -> Kỳ vọng 503
+    orig_enabled = settings.legal_assistant.tts.enabled
+    try:
+        settings.legal_assistant.tts.enabled = False
+        disabled_res = client.post("/voice/tts", json={"text": "Xin chào"})
+        assert disabled_res.status_code == 503, f"Expected 503 when TTS disabled, got {disabled_res.status_code}"
+        print("  [PASS] POST /voice/tts (Khi TTS bị vô hiệu hóa) -> 503 Service Unavailable (Bảo vệ tài nguyên)")
+    finally:
+        settings.legal_assistant.tts.enabled = orig_enabled
+
 
 
 def test_session_lifecycle(client: TestClient) -> None:
@@ -80,6 +103,7 @@ def test_session_lifecycle(client: TestClient) -> None:
     # 3.5. Xóa phiên vừa tạo
     del_res = client.delete(f"/sessions/{session_id}")
     assert del_res.status_code == 200, f"Delete session failed: {del_res.text}"
+
 
     # 3.6. Xác nhận phiên đã bị xóa (404 Not Found)
     confirm_del = client.get(f"/sessions/{session_id}")
@@ -124,12 +148,14 @@ def main() -> None:
 
         test_health_check(client)
         test_voice_voices(client)
+        test_voice_tts_validation(client)
         test_session_lifecycle(client)
         test_articles_lookup(client)
         test_chat_request_validation(client)
 
     print("\n" + "=" * 75)
-    print("🎉 TẤT CẢ 5 NHÓM KIỂM THỬ REST API & HEALTH ĐỀU VƯỢT QUA XUẤT SẮC! (100% PASSED)")
+    print("🎉 TẤT CẢ CÁC NHÓM KIỂM THỬ REST API & VOICE AI ĐỀU VƯỢT QUA XUẤT SẮC! (100% PASSED)")
+
     print("=" * 75)
 
 

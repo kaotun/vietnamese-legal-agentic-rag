@@ -39,6 +39,40 @@ async def retrieve_node(
         )
 
     logger.info(f"[RetrieveNode] Đã tìm thấy {len(retrieved_docs)} điều luật phù hợp.")
+
+    # ── Tối ưu hóa đặc biệt khi phát hiện tiền đề sai về độ tuổi hình sự (< 14 tuổi) ──
+    premise_correction = state.get("premise_correction")
+    if premise_correction and premise_correction.get("is_age_ineligible"):
+        # 1. Lọc bỏ các điều luật lạc đề (Điều 368, 369 về tội của điều tra viên/thẩm phán gây nhiễu LLM)
+        filtered_docs = [
+            d for d in retrieved_docs
+            if d.get("article") not in ("Điều 368", "Điều 369")
+        ]
+
+        # 2. Tìm Điều 12 BLHS (Tuổi chịu TNHS) và Điều 586 BLDS (Bồi thường dân sự) trong kho tri thức
+        art12_doc = None
+        art586_doc = None
+        if hasattr(retriever, "records") and retriever.records:
+            for r in retriever.records:
+                if not art12_doc and r.get("article") == "Điều 12" and "hình sự" in r.get("law_name", "").lower():
+                    art12_doc = dict(r)
+                if not art586_doc and r.get("article") == "Điều 586" and "dân sự" in r.get("law_name", "").lower():
+                    art586_doc = dict(r)
+
+        # 3. Đưa Điều 12 BLHS lên vị trí ưu tiên số 1
+        new_docs = []
+        if art12_doc:
+            new_docs.append(art12_doc)
+        if art586_doc:
+            new_docs.append(art586_doc)
+
+        for d in filtered_docs:
+            if d.get("article") not in ("Điều 12", "Điều 586"):
+                new_docs.append(d)
+
+        retrieved_docs = new_docs[:top_k]
+        logger.info(f"[RetrieveNode] Đã ưu tiên nạp Điều 12 BLHS và Điều 586 BLDS cho đối tượng {premise_correction.get('age')} tuổi.")
+
     return {
         "retrieved_docs": retrieved_docs,
     }

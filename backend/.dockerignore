@@ -10,3 +10,17 @@ __pycache__
 tests/
 scripts/debug*
 scripts/test*
+
+# Tách riêng dữ liệu cá nhân, session và file cache tạm khi đóng gói Docker image
+data/sessions/
+data/cache/
+data/*.mp3
+outputs/
+*.tmp
+*.tmp.*
+.pytest_cache/
+.coverage
+htmlcov/
+node_modules/
+.DS_Store
+Thumbs.db

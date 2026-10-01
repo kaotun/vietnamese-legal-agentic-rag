@@ -12,3 +12,9 @@ langgraph>=0.2.0
 flashrank>=0.2.0
 onnxruntime>=1.18.0
 underthesea>=9.5.0
+edge-tts>=6.1.12
+
+# Test/development dependencies
+pytest>=8.0
+pytest-asyncio>=0.23
+pytest-cov>=5.0

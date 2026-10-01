@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { marked } from 'marked';
+import DOMPurify from 'dompurify';
 
 marked.setOptions({
   breaks: true,
@@ -7,7 +8,9 @@ marked.setOptions({
 });
 
 function MarkdownContent({ content }: { content: string }) {
-  const html = marked.parse(content || '') as string;
+  const html = DOMPurify.sanitize(marked.parse(content || '') as string, {
+    ADD_ATTR: ['target', 'rel'],
+  });
   return (
     <div
       className="markdown-body text-sm sm:text-base leading-relaxed text-on-surface"

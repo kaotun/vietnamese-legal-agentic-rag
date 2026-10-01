@@ -5,7 +5,7 @@ import logging
 from typing import Any, Dict
 from src.agent.llm_client import LLMClient
 from src.agent.state import LegalAgentState
-from src.retrieval.query_rewriter import QueryRewriter
+from src.nlp.query_rewriter import QueryRewriter
 
 logger = logging.getLogger(__name__)
 

@@ -61,9 +61,18 @@ async def intent_router_node(state: LegalAgentState, llm: LLMClient | None = Non
     query = state["query"].strip()
     history = state.get("history") or []
 
-    # TIER 1: Fast-Path cho Smalltalk (Zero-latency)
-    if SMALLTALK_FAST_REGEX.search(query):
+    # TIER 1: Fast-Path cho Smalltalk thuần túy (Zero-latency)
+    # Chỉ kích hoạt khi câu chào ngắn (<= 4 từ) hoặc câu xã giao không chứa vế hỏi/nghi vấn đằng sau.
+    # Tránh trường hợp người dùng lịch sự: "Chào bạn, cho tôi hỏi vượt đèn đỏ phạt bao nhiêu?" bị biến thành smalltalk.
+    words = query.split()
+    has_question_or_substance = (
+        len(words) > 4
+        or "?" in query
+        or bool(re.search(r"\b(hỏi|cho hỏi|muốn hỏi|phạt|luật|điều|khoản|tội|quy định|thủ tục|mức|bao nhiêu|như thế nào|thế nào|sao|được không|có được|bị gì)\b", query, re.I))
+    )
+    if SMALLTALK_FAST_REGEX.search(query) and not has_question_or_substance:
         return {**state, "intent": "smalltalk"}
+
 
     # TIER 2: Semantic Routing qua LLM
     if llm:
