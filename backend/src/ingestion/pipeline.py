@@ -17,7 +17,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import asyncpg
 
-from src.config import get_settings
+from src.core.config import get_settings
 from src.retrieval.keyword_store import BM25KeywordStore
 from src.retrieval.vector_client import EmbeddingsClient
 

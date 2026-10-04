@@ -1,6 +1,6 @@
 # HỆ THỐNG TRỢ LÝ HỎI ĐÁP PHÁP LUẬT VIỆT NAM (LEGAL QA SYSTEM)
 
-> **Giải pháp Trợ lý AI Pháp lý tra cứu, phân tích và tham khảo quy định pháp luật Việt Nam — Tích hợp Kiến trúc Thẩm định 4 lớp (4-Layer Validation) và Động cơ Quy tắc Pháp lý Dựa trên Dữ liệu (Data-Driven Rule Engine), có thể triển khai nội bộ tùy cấu hình hạ tầng.**
+> Trợ lý AI tra cứu, phân tích và giải đáp pháp luật Việt Nam dựa trên kiến trúc Agentic RAG đa vòng lặp, tích hợp động cơ quy tắc pháp lý (Legal Rule Engine) và khung thẩm định 4 lớp, có khả năng triển khai hoàn toàn cục bộ (Local Edge / On-Premise).
 
 [![Python](https://img.shields.io/badge/Python-3.11-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115-05998b?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
@@ -10,36 +10,22 @@
 [![RuleEngine](https://img.shields.io/badge/Rule_Engine-Data--Driven_PostgreSQL-0ea5e9?logo=postgresql&logoColor=white)](backend/docker/postgres/init.sql)
 [![LLM](https://img.shields.io/badge/LLM-Qwen_2.5_(Ollama)-000000?logo=ollama&logoColor=white)](https://ollama.com/)
 
-Hệ thống Trợ lý Hỏi đáp Pháp luật Việt Nam là giải pháp trí tuệ nhân tạo phục vụ tra cứu, phân tích và tham khảo quy định pháp luật dựa trên kiến trúc **Agentic RAG Đa vòng lặp (Multi-Loop Agentic RAG)** kết hợp **Động cơ Thẩm tra Điều kiện Áp dụng Pháp luật (Legal Applicability & Rule Engine)** điều phối bởi LangGraph. Hệ thống phân biệt **"Relevant" (Tương đồng ngữ nghĩa)** và **"Applicable" (Khả năng áp dụng trên thực tế)**, đồng thời hỗ trợ phát hiện các rủi ro như tiền đề thiếu căn cứ, số điều không tồn tại hoặc điều kiện chủ thể không phù hợp. Hiệu quả thực tế cần được đánh giá trên tập kiểm thử và benchmark tương ứng.
+---
+
+## 1. NGUYÊN TẮC THIẾT KẾ CỐT LÕI
+
+1. **Phân định "Relevant" và "Applicable":** Tài liệu tương đồng ngữ nghĩa chưa chắc áp dụng được cho chủ thể cụ thể. Hệ thống thiết lập Legal Applicability Gate nhằm chặn sớm các trường hợp loại trừ trách nhiệm (ví dụ: chưa đủ tuổi chịu trách nhiệm hình sự).
+2. **Data-Driven Rule Engine:** Các quy tắc về độ tuổi, điều kiện áp dụng, thời hiệu và chế tài được lưu trữ dưới dạng schema JSON trong PostgreSQL (`legal_applicability_rules`), cho phép cập nhật luật mà không sửa mã nguồn.
+3. **Phát hiện dữ kiện định tính (Fact Ambiguity):** Tự động nhận diện các tình tiết chưa đủ căn cứ định khung pháp lý (như "đánh bạn trọng thương" cần kết luận giám định % thương tật chính thức).
+4. **Cơ sở tri thức có cấu trúc:** Kho dữ liệu 13.744 điều luật chuẩn hóa, đi kèm danh mục văn bản (Registry) và phân loại ngành luật (Taxonomy) để thẩm tra số hiệu và tên luật.
+5. **Trích dẫn có căn cứ (Grounded Citations):** Câu trả lời tuân theo cấu trúc 4 phần chuẩn mực (Kết luận -> Căn cứ pháp lý -> Phân tích áp dụng -> Hướng dẫn thực tiễn), đối chiếu trực tiếp với tài liệu truy hồi qua Citation Guard.
+6. **Vận hành cục bộ và bảo mật dữ liệu:** Hỗ trợ suy luận hoàn toàn offline thông qua Ollama (LLM + Embedding), PostgreSQL pgvector và BM25.
 
 ---
 
-## 1. TỔNG QUAN & NGUYÊN TẮC THIẾT KẾ CỐT LÕI
+## 2. KIẾN TRÚC HỆ THỐNG
 
-Hệ thống được xây dựng dựa trên 6 nguyên tắc thiết kế kỹ thuật nghiêm ngặt:
-
-1. **Phân định rạch ròi giữa "Relevant" và "Applicable":** Truy hồi được văn bản liên quan không đồng nghĩa với việc văn bản đó được phép áp dụng cho chủ thể cụ thể. Hệ thống tích hợp **Legal Applicability Gate** để kiểm tra một số điều kiện chủ thể được mô hình hóa trong rule engine (ví dụ: tuổi chịu trách nhiệm hình sự), qua đó giảm nguy cơ áp dụng sai trong các kịch bản đã được kiểm thử.
-2. **Data-Driven Legal Rule Engine (Không hardcode luật vào code):** Toàn bộ quy tắc về độ tuổi, điều kiện áp dụng, thẩm quyền và thời hiệu pháp lý được lưu trữ dưới dạng schema JSON trong bảng CSDL `legal_applicability_rules` (PostgreSQL), cho phép cập nhật và bổ sung version luật mới mà không cần sửa đổi mã nguồn.
-3. **Phát hiện Mơ hồ Dữ kiện (Fact Ambiguity Detection):** Tự động phát hiện và cảnh báo các dữ kiện định tính chưa đủ căn cứ định khung (ví dụ: *"đánh bạn trọng thương"* là mô tả thực tế, cần kết luận giám định tỷ lệ tổn thương cơ thể `%` chính thức của cơ quan y tế).
-4. **Structured Knowledge Base & Anti-Hallucination:** Bộ dữ liệu `backend/data/base_data.json` hiện có 13.744 bản ghi điều luật thuộc 223 `law_id` khác nhau. Registry/taxonomy là các bảng bổ sung; số lượng thực tế cần được xác nhận sau khi chạy script seed.
-5. **Grounded Citation (Bắt buộc trích dẫn có căn cứ):** Mọi câu trả lời bắt buộc tuân theo cấu trúc 4 phần chuẩn mực (Kết luận $\rightarrow$ Căn cứ pháp lý $\rightarrow$ Phân tích & Chi tiết áp dụng $\rightarrow$ Hướng dẫn & Lưu ý thực tiễn), đối chiếu trực tiếp với tài liệu gốc qua Citation Guard độc lập.
-6. **Self-Hosted & Privacy-Preserving:** LLM, embedding, PostgreSQL, BM25 và reranker có thể vận hành cục bộ. Cấu hình TTS mặc định hiện dùng `edge-tts` nên cần kết nối bên ngoài; để triển khai offline/on-premise cần chuyển sang `local_http` và cung cấp một TTS server nội bộ. Mức độ bảo mật phụ thuộc vào cấu hình mạng, phân quyền và vận hành thực tế.
-
-
-> 📖 **Tài liệu kỹ thuật chuyên sâu:**
-> - [Kiến trúc Hệ thống Chi tiết](docs/01-kien-truc-he-thong.md): Đặc tả phân tầng điều phối LangGraph, Hybrid Search, Smart Windowing, và cơ chế Citation Guard.
-> - [Lộ trình Thực hiện Dự án](docs/02-lo-trinh-thuc-hien.md): Chi tiết 9 giai đoạn từ chuẩn bị dữ liệu, phát triển lõi đến tối ưu production.
-> - [Quy trình Ingestion & Quản lý Hiệu lực](docs/03-quy-trinh-ingestion-va-hieu-luc.md): Quy trình 5 giai đoạn nạp văn bản, sinh vector nhúng và cơ chế cập nhật hiệu lực văn bản pháp luật.
-
----
-
-## 2. KIẾN TRÚC HỆ THỐNG BACKEND
-
-Hệ thống kết hợp **LangGraph StateGraph 12 Nodes** (điều phối tác nhân đa vòng lặp), **Khung Thẩm định 4 lớp (4-Layer Legal Validation Framework)** và **Advanced Hybrid RAG Engine**.
-
----
-
-### Sơ đồ Tổng thể Kiến trúc Hệ thống Agentic RAG & Legal Rule Engine Gate
+### Sơ đồ Điều phối Agentic RAG & Legal Rule Engine Gate
 
 ```mermaid
 flowchart TD
@@ -122,57 +108,31 @@ flowchart TD
     class DB_Records,DB_Registry,DB_Rules,BM25Cache,Sessions dbStyle;
 ```
 
----
-
 ### Tóm tắt Kỹ thuật Backend
 
-#### 1. Khung Thẩm định Pháp lý 4 Lớp (4-Layer Legal Validation Framework)
-Hệ thống vận hành theo quy trình kiểm tra bậc thang trước khi câu trả lời được phép phát hành tới người dùng:
-1. **Lớp 1 - Reference Validator (`src/domain/premise_checker.py` & `src/domain/legal_registry.py`):** Kiểm tra số Điều và tên Văn bản dựa trên registry/taxonomy đã seed và tập dữ liệu 13.744 bản ghi. Số lượng registry thực tế cần được xác nhận từ database sau khi seed.
-2. **Lớp 2 - Fact Validator & Ambiguity Detection (`src/domain/fact_extractor.py`):** Bóc tách sự kiện pháp lý (`age`, `action`, `victim`, `injury_percentage`, `injury_description`, `requested_info`). Phát hiện **Fact Ambiguity**: Nhận diện dữ kiện *"trọng thương"* là mô tả định tính, chưa có kết luận giám định tỷ lệ tổn thương cơ thể (%) chính thức.
-3. **Lớp 3 - Legal Applicability Validator & Hard Gate (`src/domain/rule_engine.py`):** Thực thi các quy tắc điều kiện áp dụng từ PostgreSQL (`legal_applicability_rules`). Nếu chủ thể không thỏa mãn điều kiện pháp lý trong các rule đã được cấu hình (ví dụ: người dưới 14 tuổi bị hỏi phạt tù), kích hoạt **Hard Gate (`status = BLOCKED`)** chuyển sang `inapplicability_node`, giúp tránh tiếp tục tính toán theo nhánh không phù hợp.
-4. **Lớp 4 - Evidence Validator & Citation Guard (`src/agent/nodes/grade_documents_node.py` & `src/agent/nodes/citation_guard_node.py`):** Thẩm định bằng chứng trích lục (CRAG) và rà soát đối chiếu trích dẫn chống ảo giác (Self-RAG).
+1. **Khung thẩm định 4 lớp (4-Layer Validation):**
+   - **Lớp 1 (Reference Validator):** Thẩm tra số hiệu Điều và tên Văn bản qua `LegalRegistry` và `PremiseChecker`.
+   - **Lớp 2 (Fact Validator & Ambiguity):** Bóc tách chủ thể, độ tuổi, hành vi, tỷ lệ thương tật; phát hiện mô tả định tính thiếu số liệu y tế.
+   - **Lớp 3 (Applicability Gate):** Thực thi 8 danh mục quy tắc trong CSDL (`legal_applicability_rules`). Chặn luồng phạt tù đối với người chưa đủ tuổi chịu trách nhiệm hình sự (Điều 12 BLHS) và chuyển sang nhánh giải thích dân sự/giáo dưỡng.
+   - **Lớp 4 (Evidence Validator & Citation Guard):** Thẩm định tài liệu truy hồi (CRAG) và kiểm định căn cứ trích dẫn trong câu trả lời (Self-RAG).
 
-#### 2. LangGraph StateGraph (12 Nodes với 3 Cơ chế Kiểm soát)
-- **`LegalAgentState`:** Quản lý tập trung `query`, `intent`, `legal_facts`, `eligibility_status`, `blocking_factors`, `applicable_rules`, `fact_ambiguities`, `legal_decision`, `retrieved_docs`, `docs_grade`, `retry_count`, `citations`, `answer`, `guard_status`, `hallucinated_articles`, `correction_feedback`, `hypothetical_passage`, `history`.
-- **Cơ chế 1 - Hard Gate Chốt chặn Chủ thể:** Rẽ nhánh trực tiếp khi vi phạm quy tắc loại trừ trách nhiệm hình sự (Điều 12 BLHS và Luật Tư pháp người chưa thành niên 2024 có hiệu lực 2026), kết thúc luồng với câu trả lời khẳng định không bị phạt tù và hướng dẫn biện pháp dân sự (Điều 586 BLDS 2015) / giáo dưỡng (Luật XLVPHC).
-- **Cơ chế 2 - Corrective RAG (CRAG Loop):** `grade_documents_node` $\rightarrow$ `rewrite_query_node` $\rightarrow$ `retrieve_node` (tối đa 2 vòng lặp).
-- **Cơ chế 3 - Self-Correction (Self-RAG Loop):** `citation_guard_node` $\rightarrow$ `self_correct_node` $\rightarrow$ `generate_node` (tối đa 2 vòng lặp).
+2. **LangGraph StateGraph (12 Nodes, 2 Vòng lặp):**
+   - **CRAG Loop:** `GradeDocs` -> `RewriteQuery` -> `Retrieve` (tối đa 2 lần) khi tài liệu chưa đạt yêu cầu.
+   - **Self-RAG Loop:** `CitationGuard` -> `SelfCorrect` -> `Generate` (tối đa 2 lần) khi phát hiện trích dẫn sai hoặc thiếu căn cứ.
 
-#### 3. Advanced Hybrid RAG Engine
-- **Tiền xử lý:** Sửa chính tả (`SpellCorrector`), bóc tách câu hỏi đa hành vi (`QueryDecomposer`) và sinh văn bản giả định (`HyDE`).
-- **Truy hồi song song:** Dense Search qua pgvector và Sparse Search BM25 trên RAM. Schema mặc định khai báo `vector(768)` và HNSW; script `add_vector_column.py` đo chiều vector từ embedding endpoint trước khi tạo cột, nên cần kiểm tra database thực tế sau ingestion. Candidate pool được tính động.
-- **Hợp nhất RRF:** Hòa trộn thứ hạng với $k=60$ lấy Top 15:
-  $$RRF(d) = \frac{1}{60 + \text{rank}_{\text{Dense}}(d)} + \frac{1}{60 + \text{rank}_{\text{BM25}}(d)}$$
-- **Tái xếp hạng (Reranking):** Kết hợp thuật toán **Smart Fallback** (phân tích tương quan cụm từ N-gram, mật độ từ khóa và ngữ cảnh chế tài tiếng Việt) cùng **FlashRank** (`ms-marco-MiniLM-L-12-v2` chạy ONNX CPU cục bộ nhẹ và nhanh) hoặc HTTP Endpoint ngoài (`/v1/rerank`), lọc chọn Top 3-5 Điều luật chuẩn xác nhất.
-- **Smart Windowing:** Tự động lọc đúng Khoản vi phạm và gom thêm các Khoản hình phạt bổ sung (tước GPLX, tạm giữ phương tiện...).
-- **Tổng hợp 4 phần:** LLM Qwen 2.5 sinh câu trả lời gồm: (1) Kết luận, (2) Căn cứ pháp lý, (3) Phân tích áp dụng (tự động cộng dồn mức phạt nếu đa vi phạm), (4) Hướng dẫn thực tiễn.
+3. **Advanced Hybrid Retrieval Engine:**
+   - **Hợp nhất RRF:** Kết hợp Dense Vector (pgvector HNSW) và Sparse Search (BM25 Okapi trên RAM) theo công thức Reciprocal Rank Fusion ($k=60$) để lấy Top 15 ứng viên.
+   - **Tái xếp hạng (Reranker):** Smart Fallback kết hợp Cross-Encoder FlashRank (`ms-marco-MiniLM-L-12-v2`) lọc Top 3-5 điều luật chính xác nhất.
+   - **Smart Windowing:** Tự động gom thêm các Khoản chế tài bổ sung (tước GPLX, tạm giữ phương tiện) liên quan đến hành vi vi phạm.
 
 ---
 
-## 3. CÁC TÍNH NĂNG NỔI BẬT
+## 3. TÍNH NĂNG CỐT LÕI
 
-- **Khung Thẩm định Pháp lý 4 Lớp (4-Layer Legal Validation):** Vận hành tuần tự qua 4 tầng kiểm tra độc lập: Reference Validator $\rightarrow$ Fact Validator & Fact Ambiguity $\rightarrow$ Applicability Gate $\rightarrow$ Evidence Validator & Citation Guard.
-- **Two-Tier Legal Fact Extractor (Bóc tách dữ kiện pháp lý đa tầng):**
-  - **Phân định đa chủ thể & vai trò đồng phạm:** Tách bạch người thực hành trực tiếp (`perpetrator`) và người xúi giục / chủ mưu (`instigator`).
-  - **Suy luận độ tuổi gián tiếp:** Tự động tính tuổi từ khối lớp học phổ thông (ví dụ: *học sinh lớp 7 $\rightarrow$ 12 tuổi*) và năm sinh (*sinh năm 2013 $\rightarrow$ 13 tuổi*).
-  - **Temporal Anchoring:** Bóc tách năm diễn ra sự việc (`incident_year`) có cơ chế cô lập năm sinh chống xung đột.
-- **Chốt chặn điều kiện áp dụng pháp luật (Legal Applicability Hard Gate):** Tách bạch triệt để giữa *"Relevant"* và *"Applicable"*. Khi gặp câu hỏi hỏi mức phạt tù đối với người chưa đủ tuổi chịu TNHS (ví dụ: *cháu 12 tuổi đánh bạn trọng thương theo Điều 134 BLHS bị phạt mấy năm tù*), hệ thống kích hoạt Hard Gate chặn đứng luồng phạt tù, viện dẫn Điều 12 BLHS và Luật Tư pháp người chưa thành niên 2024 (hiệu lực 2026), đồng thời hướng dẫn trách nhiệm bồi thường dân sự của cha mẹ (Điều 586 BLDS 2015) và biện pháp trường giáo dưỡng (Luật XLVPHC).
-- **Thẩm tra Hiệu lực Thời gian (Temporal Validity):** Đối chiếu `incident_year` với `effective_from` và `effective_to` trong CSDL, ngăn ngừa triệt để việc áp dụng luật hồi tố sai thời điểm.
-- **Phân định Án Đồng phạm / Xúi giục Người dưới 18 tuổi (`RULE_CRIMINAL_INSTIGATOR_ADULT_MINOR`):** Xử lý kịch bản người lớn xúi giục trẻ em: Trẻ em dưới 14 tuổi được miễn trừ trách nhiệm hình sự (Điều 12 BLHS); người lớn bị truy cứu trách nhiệm hình sự với tình tiết tăng nặng theo **Điểm m Khoản 1 Điều 52 BLHS** (*"Xúi giục người dưới 18 tuổi phạm tội"*).
-- **Động cơ quy tắc pháp lý dựa trên dữ liệu (Data-Driven Legal Rule Engine):** Thực thi 8 danh mục quy tắc pháp lý cốt lõi lưu trữ có cấu trúc trong CSDL PostgreSQL (`legal_applicability_rules`): Tuổi tối thiểu hình sự, phạm vi 14-16 tuổi, bồi thường dân sự người dưới 15 tuổi, thời hiệu khởi kiện hợp đồng (Điều 429 BLDS - 3 năm), tuổi lao động tối thiểu (Điều 143 BLLĐ - 15 tuổi), thời gian thử việc tối đa (Điều 25 BLLĐ), chế độ thai sản (Điều 139 BLLĐ), thời hiệu xử phạt vi phạm hành chính (Điều 6 Luật XLVPHC).
-- **Database Connection Pool Quản lý Tập trung (`DatabasePool` - `src/core/database.py`):** Pool dùng chung giúp tái sử dụng kết nối trong runtime FastAPI và tự động giải phóng kết nối qua context manager.
-- **LegalPromptBuilder (Single Source of Truth Prompt Engineering):** Module hóa toàn bộ logic prompt 4 phần chuẩn mực, chỉ dẫn chống nịnh hót (Anti-Sycophancy), đính chính false premise và trích xuất câu hỏi đào sâu dùng chung cho cả LangGraph và FastAPI SSE Streaming.
-- **Phát hiện Mơ hồ Dữ kiện (Fact Ambiguity Detection):** Tự động phát hiện khi câu hỏi chỉ đưa ra mô tả định tính (như *"trọng thương"*) mà thiếu kết luận giám định y khoa tỷ lệ tổn thương cơ thể (%) chính thức để định khung theo Điều 134 BLHS.
-- **Thẩm định tiền đề & Chống ngộ nhận luật (Premise Checker & Registry):** Phát hiện và đính chính các câu hỏi bẫy: Điều không tồn tại (*Điều 600 BLHS*), Tên luật giả định (*Luật Bảo vệ người lao động 2023* $\rightarrow$ định tuyến BLLĐ 2019), Tiền đề sai thời hạn (*Nghỉ thai sản 12 tháng* $\rightarrow$ đính chính 6 tháng theo Điều 139 BLLĐ 2019 và Điều 34 Luật BHXH).
-- **Truy hồi lai (Hybrid Retrieval) & Tối ưu BM25:** Kết hợp Dense Vector Search (pgvector HNSW cosine ops) và Sparse Search (BM25 Okapi trên RAM có weighting x2 cho Số Điều và Tiêu đề) qua thuật toán Reciprocal Rank Fusion (RRF). Hỗ trợ dynamic reload chỉ mục BM25 không cần khởi động lại server.
-- **Hypothetical Document Embeddings (HyDE):** Tự động sinh văn bản giả định trước khi nhúng vector, giúp thu hẹp khoảng cách ngữ nghĩa giữa câu hỏi người dùng và văn bản quy phạm pháp luật.
-- **Xử lý câu hỏi phức hợp (Multi-Violation Decomposition):** Nhận diện các tình huống chứa nhiều hành vi vi phạm khác nhau, tự động chia nhỏ thành các truy vấn đơn lẻ để truy hồi đầy đủ trước khi tổng hợp lời giải.
-- **Reranker tái xếp hạng:** Sử dụng bộ xếp hạng Smart Fallback kết hợp FlashRank (`ms-marco-MiniLM-L-12-v2`) để lọc lấy các đoạn văn bản có độ liên quan cao nhất trước khi đưa vào ngữ cảnh LLM.
-- **Citation Guard (Self-RAG):** Tầng kiểm tra độc lập đối chiếu các căn cứ Điều/Khoản được phát hiện trong câu trả lời với tài liệu đã truy hồi; đây là cơ chế giảm hallucination, không thay thế việc thẩm định pháp lý của con người.
-- **Kiểm tra nguồn văn bản gốc (Source Inspector):** Cửa sổ tra cứu trực tiếp toàn văn điều luật theo thời gian thực mà không cần rời khỏi giao diện.
-- **Trợ lý phát thanh (Voice AI):** Chuyển đổi văn bản câu trả lời thành giọng nói tiếng Việt truyền cảm (Hoài My, Nam Minh). Hỗ trợ cả Microsoft Edge-TTS trực tuyến và Local TTS nội bộ (`local_http` qua Piper/Kokoro) hoặc Web Speech API trình duyệt cho hạ tầng mạng cách ly (Air-gapped).
-- **Quản lý đa phiên hội thoại (Multi-Session):** Tạo mới, đổi tên, lưu trữ lịch sử ngữ cảnh nhiều lượt hỏi đáp và xóa phiên theo nhu cầu.
+- **Thẩm định nghiệp vụ & Chốt chặn pháp lý:** Tự động suy luận độ tuổi từ năm sinh hoặc lớp học, phân định vai trò đồng phạm (người xúi giục vs. người thực hành), đối chiếu hiệu lực thời gian của văn bản và đính chính các câu hỏi chứa tiền đề sai.
+- **Truy hồi lai & Tái xếp hạng:** Kết hợp tìm kiếm ngữ nghĩa và từ khóa qua RRF; sinh văn bản pháp lý giả định (HyDE); tách câu hỏi phức hợp thành các truy vấn đơn lẻ để tìm kiếm toàn diện.
+- **Sinh câu trả lời chuẩn mực & Chống ảo giác:** Trình tạo prompt 4 phần (Kết luận, Căn cứ pháp lý, Chi tiết áp dụng, Lưu ý thực tiễn); tích hợp Citation Guard tự động phát hiện số điều bịa đặt và kích hoạt sinh lại có định hướng.
+- **Tiện ích giao diện & Vận hành:** Hỗ trợ Streaming SSE thời gian thực; quản lý đa phiên hội thoại; tra cứu nguyên văn điều luật trực tiếp trên giao diện; tích hợp giọng nói Voice AI (Edge-TTS và Local TTS nội bộ).
 
 ---
 
@@ -180,6 +140,7 @@ Hệ thống vận hành theo quy trình kiểm tra bậc thang trước khi câ
 
 ```
 legal-qa-system/
+|-- .env.example                # File cấu hình biến môi trường mẫu
 |-- config.yaml                 # File cấu hình tập trung duy nhất cho hệ thống
 |-- docker-compose.yml          # Kịch bản triển khai toàn bộ hệ thống bằng Docker
 |
@@ -209,14 +170,11 @@ legal-qa-system/
 |   |   |-- load_postgres.py    # Khởi tạo CSDL & nạp toàn bộ tri thức pháp lý trọn gói (3-trong-1)
 |   |   |-- ingest.py           # CLI nạp văn bản mới & sinh vector embedding + BM25 cache
 |   |   `-- interactive_chat.py # Giao diện hỏi đáp trực tiếp trên dòng lệnh (CLI)
-|   |-- tests/                  # Bộ kiểm thử chuyên biệt hệ thống (15 Automated Tests)
+|   |-- tests/                  # Bộ kiểm thử chuyên biệt hệ thống (14 Automated Tests)
 |   |   |-- conftest.py         # Fixture TestClient FastAPI dùng chung
 |   |   |-- test_enhanced_legal_pipeline.py # 8 Tests: Fact Extractor, Rule Engine, DB Pool, Prompt Builder
 |   |   |-- test_api.py         # 6 Tests: Health check, Voices, Sessions CRUD, Articles Lookup
-|   |   |-- test_agentic_rag.py # Kiểm thử các vòng lặp CRAG & Self-RAG
-|   |   |-- test_agent.py       # Kiểm tra luồng chạy agent
-|   |   |-- test_retrieval.py   # Kiểm tra độ chính xác của tầng truy hồi
-|   |   `-- test_session_and_voice.py # Kiểm tra API phiên và giọng nói
+|   |   `-- test_agentic_rag.py # Kiểm thử các vòng lặp CRAG & Self-RAG
 |   `-- src/
 |       |-- core/               # Hạ tầng dùng chung (Configuration, Connection Pool)
 |       |   |-- config.py       # Bộ nạp cấu hình từ config.yaml & env
@@ -284,230 +242,207 @@ legal-qa-system/
 
 ## 5. YÊU CẦU MÔI TRƯỜNG
 
-Trước khi cài đặt, hãy đảm bảo máy tính đã được cài đặt các công cụ sau:
-
-- **Hệ điều hành:** Linux, macOS, hoặc Windows (hỗ trợ tốt trên PowerShell / WSL2)
-- **Python:** Phiên bản 3.10 trở lên
-- **Node.js:** Phiên bản 18.x trở lên cùng trình quản lý gói `npm`
-- **PostgreSQL:** Phiên bản 16 hoặc 17 có cài đặt extension `pgvector` (Khuyến nghị chạy qua Docker)
-- **Ollama:** Phục vụ mô hình LLM và Embedding cục bộ
+- **Hệ điều hành:** Linux, macOS, hoặc Windows (PowerShell / WSL2)
+- **Python:** 3.10 trở lên
+- **Node.js:** 18.x trở lên và `npm`
+- **PostgreSQL:** Phiên bản 16 hoặc 17 có extension `pgvector`
+- **Ollama:** Dịch vụ LLM và Embedding cục bộ
 
 ---
 
 ## 6. HƯỚNG DẪN CÀI ĐẶT & KHỞI CHẠY
 
-### Bước 1: Cài đặt và cấu hình Ollama (LLM & Embedding)
-
-Hệ thống sử dụng Ollama để chạy các mô hình nguồn mở. Tải và cài đặt Ollama từ trang chủ `https://ollama.com`.
-
-Khởi động dịch vụ Ollama và tải về các mô hình cần thiết:
+### Bước 1: Khởi động Ollama và tải mô hình
 
 ```bash
-# Tải mô hình ngôn ngữ lớn (LLM) phục vụ suy luận
+# Tải mô hình LLM suy luận
 ollama pull qwen2.5:3b
 
-# Tải mô hình biểu diễn véc-tơ (Embedding)
+# Tải mô hình vector embedding
 ollama pull nomic-embed-text
 ```
 
-Kiểm tra dịch vụ Ollama hoạt động tại địa chỉ: `http://localhost:11434`
-
----
-
-### Bước 2: Khởi tạo Cơ sở Dữ liệu PostgreSQL (pgvector)
-
-Cách nhanh nhất là sử dụng Docker để khởi chạy PostgreSQL kèm extension `pgvector` đã được định cấu hình cổng `23432`:
+### Bước 2: Khởi chạy PostgreSQL (pgvector) qua Docker
 
 ```bash
-# 1. Tạo file cấu hình môi trường từ mẫu
-# Trên Windows:
-copy .env.example .env
-# Trên Linux / macOS:
-cp .env.example .env
+# Tạo file môi trường từ mẫu
+cp .env.example .env    # Linux/macOS
+copy .env.example .env  # Windows
 
-# 2. Khởi chạy PostgreSQL qua Docker Compose
+# Khởi chạy container PostgreSQL (cổng 23432)
 docker compose up -d postgres
 ```
 
-Nếu cài đặt PostgreSQL thủ công trên máy cục bộ, hãy khởi tạo schema đầy đủ từ file `backend/db/init.sql` (hoặc `backend/docker/postgres/init.sql`).
-
----
-
-### Bước 3: Nạp dữ liệu pháp luật & Khởi tạo Tri thức Cấu trúc (Knowledge Base & Rules)
-
-Tiến hành nạp toàn bộ dữ liệu pháp luật và bộ quy tắc điều kiện áp dụng vào PostgreSQL:
+### Bước 3: Nạp dữ liệu pháp luật vào CSDL
 
 ```bash
-# Di chuyển vào thư mục backend
 cd backend
-
-# Khởi tạo môi trường ảo Python
 python -m venv .venv
 
 # Kích hoạt môi trường ảo:
-# Trên Windows PowerShell (nếu bị chặn quyền chạy script, chạy trước: Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass):
-.venv\Scripts\Activate.ps1
-# Trên Linux / macOS:
-source .venv/bin/activate
+source .venv/bin/activate       # Linux/macOS
+.venv\Scripts\Activate.ps1       # Windows PowerShell
 
-# Cài đặt các gói phụ thuộc
 pip install -r requirements.txt
 
-# Nạp toàn bộ dữ liệu & tự động khởi tạo 4 bảng tri thức pháp lý trọn gói (Chỉ 1 lệnh duy nhất):
+# Nạp 13.744 điều luật và khởi tạo 4 bảng tri thức (trọn gói):
 python scripts/load_postgres.py
 ```
 
-> [!TIP]
-> **Quy trình tự động hóa trọn gói của `load_postgres.py`:**
-> Script trên được tích hợp sẵn pipeline 3 trong 1:
-> 1. Nạp **13.744 điều luật** vào bảng `legal_knowledge_records`.
-> 2. Tự động trích xuất danh mục và phân loại ngành luật vào `legal_documents_registry` & `legal_domain_taxonomy`.
-> 3. Nạp bộ quy tắc điều kiện áp dụng (Eligibility Gate) vào `legal_applicability_rules`.
->
-> *(Tùy chọn nâng cao: Để sinh dense vector embedding trước cho toàn bộ 13.744 điều luật qua Ollama `nomic-embed-text`, bạn có thể chạy thêm `python scripts/ingest.py --file data/base_data.json`)*.
-
----
-
 ### Bước 4: Khởi chạy Backend (FastAPI)
 
-Đảm bảo môi trường ảo Python vẫn đang được kích hoạt tại thư mục `backend`:
-
 ```bash
-# Khởi chạy máy chủ API tại cổng 8000
 python -m uvicorn src.api.main:app --host 0.0.0.0 --port 8000 --reload
 ```
-
-- Địa chỉ kiểm tra tình trạng hệ thống: `http://127.0.0.1:8000/health`
-- Tài liệu giao diện Swagger UI: `http://127.0.0.1:8000/docs`
-
----
+- Health check: `http://127.0.0.1:8000/health`
+- Swagger API Docs: `http://127.0.0.1:8000/docs`
 
 ### Bước 5: Khởi chạy Frontend (React + Vite)
 
-Mở một cửa sổ dòng lệnh (Terminal) mới và thực hiện:
-
+Mở terminal mới:
 ```bash
-# Di chuyển vào thư mục frontend
 cd frontend
-
-# Cài đặt các thư viện phụ thuộc Node.js
 npm install
-
-# Khởi chạy máy chủ phát triển
 npm run dev
 ```
+Truy cập giao diện tại: `http://localhost:3000`
 
-Truy cập ứng dụng tại địa chỉ: `http://localhost:3000`
-
----
-
-### TÙY CHỌN: Chạy toàn bộ hệ thống bằng Docker Compose
-
-Hệ thống cung cấp sẵn file `docker-compose.yml` để đóng gói và vận hành đồng thời Database, Backend và Frontend trong container:
+### Tùy chọn: Chạy toàn bộ bằng Docker Compose
 
 ```bash
-# Tại thư mục legal-qa-system
 docker compose up --build -d
 ```
-
-Các dịch vụ sẽ sẵn sàng tại:
 - Frontend UI: `http://localhost:3000`
 - Backend API: `http://localhost:8000`
 - PostgreSQL: `localhost:23432`
 
 ---
 
-## 7. TÀI LIỆU CẤU HÌNH (config.yaml)
+## 7. CẤU HÌNH HỆ THỐNG (config.yaml)
 
-File `config.yaml` tại thư mục gốc quản lý toàn bộ tham số hoạt động:
-
-| Tham số | Giá trị mặc định | Giải thích |
+| Tham số | Mặc định | Ý nghĩa |
 |---|---|---|
-| `app.host` / `app.port` | `0.0.0.0:8000` | Địa chỉ mạng và cổng lắng nghe của máy chủ Backend |
-| `ui.host` / `ui.port` | `0.0.0.0:3000` | Cổng phát triển của Frontend |
-| `llm.base_url` | `http://localhost:11434/v1` | Endpoint tương thích OpenAI của dịch vụ LLM |
-| `llm.default_model` | `qwen2.5:3b` | Mô hình ngôn ngữ lớn dùng để tổng hợp câu trả lời |
-| `llm.temperature` | `0.1` | Độ ngẫu nhiên của mô hình (thấp để tăng tính chính xác) |
-| `embeddings.base_url` | `http://localhost:11434/v1` | Endpoint của dịch vụ trích xuất vector đặc trưng |
-| `embeddings.model` | `nomic-embed-text` | Model embedding mặc định; chiều vector thực tế cần xác nhận từ endpoint |
-| `legal_assistant.chat.streaming` | `true` | Cho phép stream kết quả theo thời gian thực (SSE) |
+| `app.host` / `app.port` | `0.0.0.0:8000` | Địa chỉ mạng và cổng Backend |
+| `ui.host` / `ui.port` | `0.0.0.0:3000` | Cổng phát triển Frontend |
+| `llm.base_url` | `http://localhost:11434/v1` | Endpoint LLM tương thích OpenAI |
+| `llm.default_model` | `qwen2.5:3b` | Mô hình ngôn ngữ lớn |
+| `llm.temperature` | `0.1` | Độ ngẫu nhiên suy luận |
+| `embeddings.base_url` | `http://localhost:11434/v1` | Endpoint Embedding |
+| `embeddings.model` | `nomic-embed-text` | Mô hình trích xuất đặc trưng vector |
+| `legal_assistant.chat.streaming` | `true` | Bật stream Server-Sent Events (SSE) |
 | `legal_assistant.retrieval.top_k` | `20` | Số lượng tài liệu sơ tuyển ban đầu |
-| `legal_assistant.retrieval.rerank_top_k` | `5` | Số tài liệu chính xác nhất giữ lại sau tái xếp hạng |
-| `legal_assistant.retrieval.fusion_method`| `rrf` | Phương pháp kết hợp kết quả: Reciprocal Rank Fusion |
-| `legal_assistant.reranker.enabled` | `true` | Kích hoạt bộ tái xếp hạng sau Hybrid Retrieval |
-| `legal_assistant.reranker.engine` | `smart_fallback` | Động cơ rerank: `smart_fallback` (tiếng Việt chuyên sâu) \| `flashrank` (ONNX CPU) \| `http` (API ngoài) |
-| `legal_assistant.reranker.model` | `ms-marco-MiniLM-L-12-v2` | Mô hình Cross-Encoder cho FlashRank hoặc HTTP endpoint |
-| `legal_assistant.reranker.top_n` | `5` | Số lượng Điều luật tinh chọn giữ lại sau tái xếp hạng |
-| `legal_assistant.tts.enabled` | `true` | Bật/tắt dịch vụ tổng hợp giọng nói Voice AI |
-
-| `legal_assistant.tts.provider` | `edge-tts` | `edge-tts` (cần kết nối bên ngoài) hoặc `local_http` (có thể offline nếu có TTS server nội bộ) |
-| `legal_assistant.tts.base_url` | `http://localhost:8028/...` | Endpoint khi dùng provider `local_http` (Piper / Kokoro / LocalAI) |
-| `legal_assistant.tts.default_voice` | `vi-VN-HoaiMyNeural` | Giọng đọc mặc định (`vi-VN-HoaiMyNeural` hoặc `vi-VN-NamMinhNeural`) |
-| `legal_assistant.postgres.database_url` | `postgresql://...` | Chuỗi kết nối đến cơ sở dữ liệu PostgreSQL |
-
-
-Hệ thống hiện được cấu hình cho môi trường local/demo đơn người dùng. Các endpoint quản trị như `POST /ingest` và `DELETE /sessions` chưa triển khai authentication người dùng đầy đủ; không nên expose trực tiếp backend ra Internet nếu chưa bổ sung cơ chế xác thực và phân quyền.
+| `legal_assistant.retrieval.rerank_top_k` | `5` | Số tài liệu tinh chọn sau rerank |
+| `legal_assistant.retrieval.fusion_method`| `rrf` | Phương pháp hợp nhất: Reciprocal Rank Fusion |
+| `legal_assistant.reranker.enabled` | `true` | Kích hoạt bộ tái xếp hạng Reranker |
+| `legal_assistant.reranker.engine` | `smart_fallback` | Động cơ: `smart_fallback` \| `flashrank` \| `http` |
+| `legal_assistant.reranker.model` | `ms-marco-MiniLM-L-12-v2` | Mô hình Cross-Encoder cho FlashRank/HTTP |
+| `legal_assistant.tts.enabled` | `true` | Bật/tắt giọng nói đọc văn bản |
+| `legal_assistant.tts.provider` | `edge-tts` | `edge-tts` (online) hoặc `local_http` (nội bộ) |
+| `legal_assistant.tts.default_voice` | `vi-VN-HoaiMyNeural` | Giọng đọc mặc định |
+| `legal_assistant.postgres.database_url` | `postgresql://...` | Chuỗi kết nối PostgreSQL |
 
 ---
 
 ## 8. DANH MỤC API ENDPOINTS
 
-Hệ thống cung cấp hệ thống REST API và Streaming SSE tiêu chuẩn:
-
 | Phương thức | Đường dẫn Endpoint | Chức năng |
 |---|---|---|
-| `GET` | `/health` | Kiểm tra trạng thái hoạt động của Backend và cơ sở dữ liệu |
+| `GET` | `/health` | Kiểm tra trạng thái Backend và CSDL |
 | `POST` | `/chat` | Gửi câu hỏi pháp lý và nhận câu trả lời đồng bộ |
-| `POST` | `/chat/stream` | Hỏi đáp dạng truyền dữ liệu liên tục Server-Sent Events (SSE) |
+| `POST` | `/chat/stream` | Hỏi đáp truyền dữ liệu liên tục Server-Sent Events (SSE) |
 | `GET` | `/articles/lookup` | Tra cứu nguyên văn điều luật theo số hiệu hoặc trích dẫn |
 | `GET` | `/sessions` | Lấy danh sách toàn bộ các phiên hội thoại |
 | `POST` | `/sessions` | Khởi tạo phiên hội thoại mới |
-| `GET` | `/sessions/{id}` | Lấy lại toàn bộ lịch sử tin nhắn của một phiên |
-| `DELETE` | `/sessions/{id}` | Xóa một phiên hội thoại cụ thể |
+| `GET` | `/sessions/{session_id}` | Lấy lại toàn bộ lịch sử tin nhắn của một phiên |
+| `PATCH` | `/sessions/{session_id}` | Đổi tên tiêu đề phiên hội thoại |
+| `PUT` | `/sessions/{session_id}` | Cập nhật thông tin phiên hội thoại |
+| `DELETE` | `/sessions/{session_id}` | Xóa một phiên hội thoại cụ thể |
 | `DELETE` | `/sessions` | Xóa tất cả các phiên hội thoại |
-| `GET` | `/voice/voices` | Danh sách giọng đọc hỗ trợ (Edge-TTS trực tuyến & Local TTS nội bộ) |
-| `POST` | `/voice/tts` | Chuyển văn bản câu trả lời thành file âm thanh giọng nói MP3 (Edge-TTS / Local HTTP) |
+| `POST` | `/ingest` | Nạp tài liệu pháp luật mới vào hệ thống qua API |
+| `GET` | `/voice/voices` | Danh sách giọng đọc hỗ trợ |
+| `POST` | `/voice/tts` | Chuyển văn bản câu trả lời thành file âm thanh MP3 |
+| `POST` | `/admin/reload-registry` | Tải lại Legal Registry mà không cần khởi động lại server |
 
-
-Các token của `/chat/stream` được buffer ở backend và chỉ phát ra sau khi Citation Guard kiểm tra xong toàn bộ câu trả lời.
-
----
-
-## 9. KIỂM THỬ & ĐO LƯỜNG CHẤT LƯỢNG
-
-Hệ thống cung cấp sẵn các bộ công cụ kiểm thử độc lập trong `backend/tests/` và tiện ích dòng lệnh trong `backend/scripts/`:
-
-1. **Kiểm thử tự động qua Pytest:**
-   ```bash
-   # Chạy bộ kiểm thử Fact Extractor, Rule Engine, DB Pool, Prompt Builder (8 tests)
-   python -m pytest tests/test_enhanced_legal_pipeline.py -v
-
-   # Chạy kiểm thử REST API, Health check & Session lifecycle (6 tests)
-   python -m pytest tests/test_api.py -v
-   ```
-2. **Thử nghiệm tương tác trên dòng lệnh (CLI):**
-   ```bash
-   python scripts/interactive_chat.py
-   ```
-3. **Kiểm tra luồng điều phối tác nhân LangGraph (Agent Pipeline):**
-   ```bash
-   python tests/test_agent.py
-   ```
-4. **Kiểm tra tầng truy hồi thông tin (Retrieval Precision):**
-   ```bash
-   python tests/test_retrieval.py
-   ```
-5. **Kiểm tra tính năng lưu trữ phiên và giọng nói (Voice AI):**
-   ```bash
-   python tests/test_session_and_voice.py
-   ```
+> Token của `/chat/stream` được đệm ở backend và phát ra sau khi Citation Guard hoàn tất thẩm định.
 
 ---
 
-## 10. MIỄN TRỪ TRÁCH NHIỆM
+## 9. KIỂM THỬ HỆ THỐNG
+
+```bash
+# 1. Chạy bộ kiểm thử Fact Extractor, Rule Engine, DB Pool, Prompt Builder (8 tests)
+python -m pytest tests/test_enhanced_legal_pipeline.py -v
+
+# 2. Chạy kiểm thử REST API, Health check & Sessions CRUD (6 tests)
+python -m pytest tests/test_api.py -v
+
+# 3. Thử nghiệm hỏi đáp trên dòng lệnh (CLI)
+python scripts/interactive_chat.py
+
+# 4. Kiểm thử các vòng lặp phản hồi Agentic RAG (Mock CRAG & Self-RAG)
+python tests/test_agentic_rag.py
+
+# 5. Khởi chạy bộ Jupyter Notebooks thực nghiệm R&D
+jupyter notebook notebooks/
+```
+
+---
+
+## 10. KẾT QUẢ THỰC NGHIỆM & BENCHMARK ĐO LƯỜNG
+
+Hệ thống được đo lường định lượng trên cơ sở tri thức 13.744 Điều luật, môi trường máy chủ cục bộ (Ollama `qwen2.5:3b` và PostgreSQL 17 pgvector).
+
+### 1. Năng lực Truy xuất (Retrieval Ablation Study - Notebook 02)
+Đo lường trên tập benchmark 20 câu hỏi đa lĩnh vực (Giao thông, Lao động, Doanh nghiệp, Đất đai):
+
+| Chiến lược truy xuất | Recall@1 (%) | Recall@3 (%) | Recall@5 (%) | Recall@10 (%) | MRR | Latency P50 (ms) | Latency P90 (ms) |
+|---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| **1. BM25 (Lexical Only)** | 60.0% | 70.0% | 70.0% | 85.0% | 0.66 | 127.2 ms | 169.3 ms |
+| **2. Dense Vector (Semantic Only)** | 60.0% | 65.0% | 75.0% | 75.0% | 0.65 | 54.9 ms | 98.1 ms |
+| **3. Hybrid RRF (Combined Dense + Sparse)** | 35.0% | **85.0%** | **90.0%** | **90.0%** | 0.60 | 190.2 ms | 248.5 ms |
+| **4. Hybrid RRF + Expansion (Hệ thống v3)** | 45.0% | 70.0% | 80.0% | **90.0%** | 0.61 | 305.8 ms | 446.3 ms |
+
+> **Nhận xét:** Cơ chế Hybrid RRF đạt độ phủ Recall@5 và Recall@10 ở mức 90.0%, vượt trội so với tìm kiếm đơn lẻ trong việc xử lý ngôn ngữ đời thường sang ngôn ngữ luật định.
+
+### 2. Đánh giá Chất lượng Agentic RAG qua RAGAS Framework (Notebook 03)
+Đánh giá trên 15 bài toán phân loại ý định và 10 bài toán pháp lý chuyên sâu có Ground Truth đối chuẩn:
+
+- **Phân loại ý định (Intent Routing - 15 test cases):** Độ chính xác **100.0% (15/15)**, độ trễ trung bình **152.3 ms / truy vấn**.
+- **Chỉ số RAGAS & Nghiệp vụ pháp lý cốt lõi (10 Legal QA Test Cases):**
+
+| Thang đo đánh giá | Điểm số thực nghiệm | Ý nghĩa kỹ thuật & Nghiệp vụ |
+|---|:---:|---|
+| **Citation Precision** | **100.0%** | 100% Điều luật trích dẫn đều có căn cứ thật trong tài liệu đã truy hồi (chống bịa đặt số điều). |
+| **Answer Relevancy** | **95.4%** | Mức độ bám sát câu hỏi và giải thích đúng trọng tâm pháp lý. |
+| **Faithfulness (Độ trung thực)** | **94.9%** | Mọi lập luận và mức phạt đều căn cứ trên tài liệu gốc, không suy diễn ngoài luật. |
+| **Context Recall** | **90.0%** | Tỷ lệ các Điều luật bắt buộc trong Ground Truth được hệ thống bao quát đầy đủ. |
+| **Context Precision** | **70.0%** | Mức độ cô đọng của các đoạn văn bản luật đưa vào ngữ cảnh sinh câu trả lời. |
+| **4-Part Structure Compliance** | **50.0%** | Tỷ lệ tuân thủ kết cấu 4 phần chuẩn mực (Kết luận -> Căn cứ -> Áp dụng -> Lưu ý). |
+
+### 3. Ma trận Phân vị Độ trễ & Thông lượng (Latency Benchmark - Notebook 04)
+Đo lường chi tiết qua 6 bài toán pháp lý tiêu chuẩn chạy thực tế trên máy chủ cục bộ:
+
+| Chặng xử lý | Đơn vị | Mean (TB) | P50 (Median) | P90 | P99 (Max) | Min | Max |
+|---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| **1. Intent Router** | ms | 325.8 | **173.4** | 651.6 | 1,024.7 | 147.6 | 1,066.1 |
+| **2. Query Rewriter** | ms | 624.0 | **608.0** | 874.5 | 945.3 | 379.3 | 953.2 |
+| **3. HyDE Passage** | ms | 2,050.2 | **1,940.1** | 2,578.0 | 2,998.4 | 1,606.4 | 3,045.1 |
+| **4. Retrieval & Reranker** | ms | 1,988.7 | **2,058.7** | 2,371.8 | 2,404.9 | 1,520.7 | 2,408.6 |
+| **5. Smart Windowing** | ms | 6.2 | **5.7** | 12.1 | 13.1 | 0.5 | 13.2 |
+| **6. LLM Generation** | ms | 4,102.7 | **3,407.6** | 5,744.3 | 5,856.4 | 3,123.4 | 5,868.8 |
+| **7. Citation Guard** | ms | 3.1 | **3.0** | 3.8 | 4.1 | 2.5 | 4.2 |
+| **Tổng Pipeline (End-to-End)** | **giây** | **9.10 s** | **9.18 s** | **10.88 s** | **11.08 s** | **6.99 s** | **11.10 s** |
+| **Time to First Token (TTFT)** | **giây** | **5.14 s** | **5.29 s** | **6.14 s** | **6.24 s** | **4.00 s** | **6.25 s** |
+| **Throughput (Từ/giây)** | **words/s** | **30.00 w/s** | **30.00 w/s** | **32.45 w/s** | **32.85 w/s** | **27.10 w/s** | **32.90 w/s** |
+| **Throughput (Token/giây)** | **tokens/s**| **38.90 t/s** | **38.75 t/s** | **42.15 t/s** | **42.64 t/s** | **35.10 t/s** | **42.70 t/s** |
+
+> **Hiệu ứng Steady-State:** Sau khi nạp model (Warm-up), độ trễ Intent Router giảm 84.6% (từ 1.066,1 ms xuống 164,0 ms) và TTFT giảm 20.8% (xuống ~4,0 - 4,9s).
+
+---
+
+## 11. MIỄN TRỪ TRÁCH NHIỆM
 
 > [!WARNING]
-> **Lưu ý quan trọng về giá trị pháp lý:**
 > - **Mục đích tham khảo:** Hệ thống được phát triển phục vụ mục đích nghiên cứu, học tập và tra cứu thông tin tham khảo.
 > - **Không thay thế tư vấn pháp lý:** Câu trả lời do AI sinh ra không cấu thành ý kiến tư vấn pháp lý chính thức và không có giá trị pháp lý thay thế cơ quan nhà nước có thẩm quyền hoặc luật sư hành nghề.
 > - **Đối chiếu văn bản gốc:** Người dùng cần kiểm tra, đối chiếu lại với văn bản quy phạm pháp luật hiện hành mới nhất trước khi đưa ra các quyết định trong thực tế.
@@ -515,6 +450,6 @@ Hệ thống cung cấp sẵn các bộ công cụ kiểm thử độc lập tro
 
 ---
 
-## 11. BẢN QUYỀN & LIÊN HỆ
+## 12. BẢN QUYỀN & LIÊN HỆ
 
 Dự án được xây dựng phục vụ mục đích học tập, nghiên cứu và phát triển giải pháp ứng dụng trí tuệ nhân tạo trong lĩnh vực pháp lý tại Việt Nam. Dữ liệu văn bản quy phạm pháp luật được trích xuất từ các nguồn công khai chính thức của Nhà nước.

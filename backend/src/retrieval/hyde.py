@@ -6,7 +6,7 @@ import re
 from typing import Optional
 
 from src.agent.llm_client import LLMClient
-from src.config import get_settings
+from src.core.config import get_settings
 
 logger = logging.getLogger(__name__)
 

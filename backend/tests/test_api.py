@@ -21,7 +21,7 @@ if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
 
 from fastapi.testclient import TestClient
-from src.config import get_settings
+from src.core.config import get_settings
 from src.api.main import app
 
 settings = get_settings()

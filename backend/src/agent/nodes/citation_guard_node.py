@@ -109,6 +109,10 @@ def extract_article_numbers(text: str) -> Set[str]:
     return {f"Điều {m}" for m in _ARTICLE_ONLY.findall(text)}
 
 
+# Alias tương thích ngược cho notebook kiểm thử và mã cũ
+extract_mentioned_articles = extract_article_numbers
+
+
 # ---------------------------------------------------------------------------
 # Logic xây dựng tập điều luật hợp lệ từ context
 # ---------------------------------------------------------------------------

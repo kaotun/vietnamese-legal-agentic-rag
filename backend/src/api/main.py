@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field
 from src.agent.graph import LegalAgent
 from src.agent.nodes.citation_guard_node import citation_guard_node
 from src.agent.prompt_builder import LegalPromptBuilder, build_generation_prompt
-from src.config import get_settings
+from src.core.config import get_settings
 from src.services.voice_service import (
     DEFAULT_VOICE,
     VOICE_MALE,

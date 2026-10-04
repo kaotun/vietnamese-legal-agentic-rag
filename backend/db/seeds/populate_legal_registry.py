@@ -426,6 +426,6 @@ if __name__ == "__main__":
         sys.path.insert(0, backend_root)
 
     sys.stdout.reconfigure(encoding="utf-8")
-    from src.config import get_settings
+    from src.core.config import get_settings
     settings = get_settings()
     populate_registry(settings.legal_assistant.postgres.database_url)

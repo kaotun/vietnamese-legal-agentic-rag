@@ -101,7 +101,33 @@ class LegalRuleEngine:
                 self._is_loaded = True
                 logger.info(f"[LegalRuleEngine] Đã nạp thành công {len(self._rules_cache)} quy tắc pháp lý qua Connection Pool.")
         except Exception as e:
-            logger.error(f"[LegalRuleEngine] Không thể nạp quy tắc từ CSDL: {e}")
+            logger.warning(f"[LegalRuleEngine] Không thể nạp quy tắc từ CSDL ({e}). Chuyển sang chế độ built-in rules (offline fallback).")
+            self._load_fallback_rules()
+            self._is_loaded = True
+
+    def _load_fallback_rules(self) -> None:
+        """Nạp các quy tắc pháp luật cốt lõi tích hợp sẵn khi cơ sở dữ liệu ngoại vi chưa sẵn sàng."""
+        try:
+            from db.seeds.seed_applicability_rules import RULES_DATA
+            self._rules_cache = [
+                {
+                    "rule_id": r[0],
+                    "rule_name": r[1],
+                    "domain": r[2],
+                    "target_law_id": r[3],
+                    "target_article": r[4],
+                    "condition_schema": r[5],
+                    "effect_type": r[6],
+                    "legal_decision": r[7],
+                    "effective_from": r[8],
+                    "effective_to": r[9],
+                    "version": r[10],
+                }
+                for r in RULES_DATA
+            ]
+        except Exception as err:
+            logger.error(f"[LegalRuleEngine] Không thể nạp seed fallback rules: {err}")
+            self._rules_cache = []
 
     def evaluate_facts(self, facts: LegalFacts) -> RuleEvaluationResult:
         """Đánh giá tập hợp sự kiện pháp lý dựa trên các quy tắc trong CSDL và mốc thời gian."""

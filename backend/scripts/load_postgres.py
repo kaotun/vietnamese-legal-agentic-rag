@@ -19,7 +19,7 @@ except Exception:
     pass
 
 import asyncpg
-from src.config import get_settings
+from src.core.config import get_settings
 
 DEFAULT_DATASET = BACKEND_DIR / "data" / "base_data.json"
 REQUIRED_FIELDS = {

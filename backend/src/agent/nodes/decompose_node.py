@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 from src.agent.llm_client import LLMClient
 from src.domain.premise_checker import check_query_premise
 from src.agent.state import LegalAgentState
