@@ -390,53 +390,56 @@ jupyter notebook notebooks/
 
 ## 10. KẾT QUẢ THỰC NGHIỆM & BENCHMARK ĐO LƯỜNG
 
-Hệ thống được đo lường định lượng trên cơ sở tri thức 13.744 Điều luật, môi trường máy chủ cục bộ (Ollama `qwen2.5:3b` và PostgreSQL 17 pgvector).
+Hệ thống được đo lường định lượng toàn diện trên cơ sở tri thức 13.744 Điều luật, môi trường máy chủ cục bộ (Ollama `qwen2.5:3b`, `nomic-embed-text` và PostgreSQL 17 pgvector), tích hợp bộ dữ liệu thi đấu pháp lý chuẩn quốc gia **ALQAC (Automated Legal Question Answering Competition)**.
 
 ### 1. Năng lực Truy xuất (Retrieval Ablation Study - Notebook 02)
-Đo lường trên tập benchmark 20 câu hỏi đa lĩnh vực (Giao thông, Lao động, Doanh nghiệp, Đất đai):
+Đo lường trên tập benchmark **52 câu hỏi ALQAC chuẩn hóa** (`backend/data/eval/alqac_filtered_52.json`) đối chiếu 13.744 Điều luật trong cơ sở dữ liệu:
 
 | Chiến lược truy xuất | Recall@1 (%) | Recall@3 (%) | Recall@5 (%) | Recall@10 (%) | MRR | Latency P50 (ms) | Latency P90 (ms) |
 |---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
-| **1. BM25 (Lexical Only)** | 60.0% | 70.0% | 70.0% | 85.0% | 0.66 | 127.2 ms | 169.3 ms |
-| **2. Dense Vector (Semantic Only)** | 60.0% | 65.0% | 75.0% | 75.0% | 0.65 | 54.9 ms | 98.1 ms |
-| **3. Hybrid RRF (Combined Dense + Sparse)** | 35.0% | **85.0%** | **90.0%** | **90.0%** | 0.60 | 190.2 ms | 248.5 ms |
-| **4. Hybrid RRF + Expansion (Hệ thống v3)** | 45.0% | 70.0% | 80.0% | **90.0%** | 0.61 | 305.8 ms | 446.3 ms |
+| **1. BM25 (Lexical Only)** | **40.38%** | **59.62%** | **65.38%** | **78.85%** | **0.52** | 143.2 ms | 331.5 ms |
+| **2. Dense Vector (Semantic Only)** | 21.15% | 34.62% | 38.46% | 40.38% | 0.28 | **40.4 ms** | 134.4 ms |
+| **3. Hybrid RRF (Combined Dense + Sparse)** | 34.62% | 48.08% | 57.69% | 71.15% | 0.45 | 208.6 ms | 434.7 ms |
+| **4. Hybrid RRF + Expansion (Hệ thống v3)** | 34.62% | 48.08% | 57.69% | 71.15% | 0.45 | 218.7 ms | 409.6 ms |
 
-> **Nhận xét:** Cơ chế Hybrid RRF đạt độ phủ Recall@5 và Recall@10 ở mức 90.0%, vượt trội so với tìm kiếm đơn lẻ trong việc xử lý ngôn ngữ đời thường sang ngôn ngữ luật định.
+> **Nhận xét chuyên sâu:**
+> - BM25 đạt Recall@10 cao nhất (**78.85%**) nhờ đặc thù câu hỏi ALQAC chứa nhiều thuật ngữ pháp lý chính xác (như *hợp đồng điện tử, nồng độ cồn, phương án giá*).
+> - Dense Vector có tốc độ xử lý nhanh nhất (**40.4 ms**), đóng vai trò bổ khuyết ngữ nghĩa cho các cách diễn đạt đời thường.
+> - Cơ chế Hybrid RRF cân bằng hài hòa giữa từ khóa và ngữ nghĩa, giúp chống sót các Điều luật đặc thù.
 
 ### 2. Đánh giá Chất lượng Agentic RAG qua RAGAS Framework (Notebook 03)
-Đánh giá trên 15 bài toán phân loại ý định và 10 bài toán pháp lý chuyên sâu có Ground Truth đối chuẩn:
+Đánh giá trên 15 bài toán phân loại ý định và **toàn bộ 52 bài toán pháp lý chuyên sâu từ tập ALQAC** (`backend/data/eval/alqac_filtered_52.json`) có Ground Truth 4 phần đối chuẩn:
 
-- **Phân loại ý định (Intent Routing - 15 test cases):** Độ chính xác **100.0% (15/15)**, độ trễ trung bình **152.3 ms / truy vấn**.
-- **Chỉ số RAGAS & Nghiệp vụ pháp lý cốt lõi (10 Legal QA Test Cases):**
+- **Phân loại ý định (Intent Routing - 15 test cases):** Độ chính xác **93.3% (14/15)**, độ trễ trung bình **2.32s / truy vấn** (bao gồm lần nạp lạnh ban đầu).
+- **Chỉ số RAGAS & Nghiệp vụ pháp lý cốt lõi (Toàn bộ 52 ALQAC Legal QA Test Cases):**
 
-| Thang đo đánh giá | Điểm số thực nghiệm | Ý nghĩa kỹ thuật & Nghiệp vụ |
+| Thang đo đánh giá | Điểm số thực nghiệm (N=52) | Ý nghĩa kỹ thuật & Nghiệp vụ |
 |---|:---:|---|
-| **Citation Precision** | **100.0%** | 100% Điều luật trích dẫn đều có căn cứ thật trong tài liệu đã truy hồi (chống bịa đặt số điều). |
-| **Answer Relevancy** | **95.4%** | Mức độ bám sát câu hỏi và giải thích đúng trọng tâm pháp lý. |
-| **Faithfulness (Độ trung thực)** | **94.9%** | Mọi lập luận và mức phạt đều căn cứ trên tài liệu gốc, không suy diễn ngoài luật. |
-| **Context Recall** | **90.0%** | Tỷ lệ các Điều luật bắt buộc trong Ground Truth được hệ thống bao quát đầy đủ. |
-| **Context Precision** | **70.0%** | Mức độ cô đọng của các đoạn văn bản luật đưa vào ngữ cảnh sinh câu trả lời. |
-| **4-Part Structure Compliance** | **50.0%** | Tỷ lệ tuân thủ kết cấu 4 phần chuẩn mực (Kết luận -> Căn cứ -> Áp dụng -> Lưu ý). |
+| **Answer Relevancy** | **92.4%** | Mức độ bám sát câu hỏi người dùng, giải thích đúng trọng tâm pháp lý trên toàn bộ 8 bộ luật. |
+| **Faithfulness (Độ trung thực)** | **90.0%** | Mọi lập luận và kết luận đều căn cứ chặt chẽ trên tài liệu Điều luật được cấp, triệt tiêu ảo giác (hallucination). |
+| **Citation Precision** | **80.5%** | 80.5% Điều luật trích dẫn đều có căn cứ thật trong CSDL; **44/52 ca đạt `passed` an toàn, 8/52 ca `warning`, 0 ca `failed`**. |
+| **Context Recall** | **61.5%** | Tỷ lệ các Điều luật bắt buộc trong Ground Truth ALQAC được bộ lọc Hybrid bao quát đầy đủ. |
+| **Context Precision** | **53.8%** | Mức độ cô đọng và xếp hạng ưu tiên của các đoạn văn bản luật đưa vào ngữ cảnh sinh câu trả lời. |
+| **4-Part Structure Compliance** | **44.2%** | Tỷ lệ tuân thủ đầy đủ kết cấu 4 phần (khi gặp 35 câu trắc nghiệm ngắn, mô hình 3B tập trung vào Kết luận và Căn cứ pháp lý). |
 
 ### 3. Ma trận Phân vị Độ trễ & Thông lượng (Latency Benchmark - Notebook 04)
-Đo lường chi tiết qua 6 bài toán pháp lý tiêu chuẩn chạy thực tế trên máy chủ cục bộ:
+Đo lường vi mô chi tiết qua 7 chặng trên 6 bài toán ALQAC đại diện (bao quát 5 bộ luật và 3 dạng câu hỏi) chạy thực tế trên máy chủ cục bộ:
 
 | Chặng xử lý | Đơn vị | Mean (TB) | P50 (Median) | P90 | P99 (Max) | Min | Max |
 |---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
-| **1. Intent Router** | ms | 325.8 | **173.4** | 651.6 | 1,024.7 | 147.6 | 1,066.1 |
-| **2. Query Rewriter** | ms | 624.0 | **608.0** | 874.5 | 945.3 | 379.3 | 953.2 |
-| **3. HyDE Passage** | ms | 2,050.2 | **1,940.1** | 2,578.0 | 2,998.4 | 1,606.4 | 3,045.1 |
-| **4. Retrieval & Reranker** | ms | 1,988.7 | **2,058.7** | 2,371.8 | 2,404.9 | 1,520.7 | 2,408.6 |
-| **5. Smart Windowing** | ms | 6.2 | **5.7** | 12.1 | 13.1 | 0.5 | 13.2 |
-| **6. LLM Generation** | ms | 4,102.7 | **3,407.6** | 5,744.3 | 5,856.4 | 3,123.4 | 5,868.8 |
-| **7. Citation Guard** | ms | 3.1 | **3.0** | 3.8 | 4.1 | 2.5 | 4.2 |
-| **Tổng Pipeline (End-to-End)** | **giây** | **9.10 s** | **9.18 s** | **10.88 s** | **11.08 s** | **6.99 s** | **11.10 s** |
-| **Time to First Token (TTFT)** | **giây** | **5.14 s** | **5.29 s** | **6.14 s** | **6.24 s** | **4.00 s** | **6.25 s** |
-| **Throughput (Từ/giây)** | **words/s** | **30.00 w/s** | **30.00 w/s** | **32.45 w/s** | **32.85 w/s** | **27.10 w/s** | **32.90 w/s** |
-| **Throughput (Token/giây)** | **tokens/s**| **38.90 t/s** | **38.75 t/s** | **42.15 t/s** | **42.64 t/s** | **35.10 t/s** | **42.70 t/s** |
+| **1. Intent Router** | ms | 1,655.8 | **187.9** | 4,610.8 | 8,579.0 | 168.3 | 9,019.9 |
+| **2. Query Rewriter** | ms | 904.1 | **660.8** | 1,582.7 | 2,150.9 | 374.0 | 2,214.0 |
+| **3. HyDE Passage** | ms | 1,906.4 | **1,807.8** | 2,538.7 | 2,640.8 | 1,185.7 | 2,652.2 |
+| **4. Retrieval & Reranker** | ms | 1,827.0 | **1,470.8** | 2,847.1 | 3,719.6 | 1,156.7 | 3,816.5 |
+| **5. Smart Windowing** | ms | 7.2 | **7.0** | 13.8 | 16.5 | 0.1 | 16.8 |
+| **6. LLM Generation** | ms | 5,640.7 | **5,062.3** | 8,284.8 | 9,354.6 | 3,363.6 | 9,473.5 |
+| **7. Citation Guard** | ms | 2.8 | **2.4** | 4.5 | 6.1 | 1.2 | 6.3 |
+| **Tổng Pipeline (End-to-End)** | **giây** | **11.94 s** | **8.54 s** | **19.42 s** | **25.07 s** | **7.26 s** | **25.70 s** |
+| **Time to First Token (TTFT)** | **giây** | **6.45 s** | **4.62 s** | **11.28 s** | **15.86 s** | **3.29 s** | **16.37 s** |
+| **Throughput (Từ/giây)** | **words/s** | **35.3 w/s** | **33.1 w/s** | **41.4 w/s** | **43.7 w/s** | **31.3 w/s** | **44.0 w/s** |
+| **Throughput (Token/giây)** | **tokens/s**| **45.9 t/s** | **42.8 t/s** | **53.8 t/s** | **56.9 t/s** | **40.7 t/s** | **57.2 t/s** |
 
-> **Hiệu ứng Steady-State:** Sau khi nạp model (Warm-up), độ trễ Intent Router giảm 84.6% (từ 1.066,1 ms xuống 164,0 ms) và TTFT giảm 20.8% (xuống ~4,0 - 4,9s).
+> **Hiệu ứng Steady-State:** Sau khi nạp model (Warm-up), độ trễ Intent Router giảm **98.0%** (từ 9,019.9 ms xuống 182.5 ms), tổng thời gian xử lý toàn bộ pipeline giảm **67.0%** (từ 25.70s xuống 8.49s) và TTFT giảm **75.7%** (từ 16.37s xuống 3.97s).
 
 ---
 
