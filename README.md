@@ -29,68 +29,68 @@
 
 ```mermaid
 flowchart TD
-    %% TẦNG GIAO DIỆN & API GATEWAY
-    Client["Client / Người dùng (Web UI & Voice AI)"] --> Gateway["API Gateway (FastAPI)"]
+    %% CLIENT & API GATEWAY LAYER
+    Client["Client / User<br/>(Web UI & Voice AI)"] --> Gateway["API Gateway (FastAPI)"]
     Gateway <--> Sessions[("Session Storage<br/>Multi-Session JSON")]
     Gateway --> START([START])
 
-    %% TẦNG ĐIỀU PHỐI LANGGRAPH
-    subgraph LangGraph ["HỆ THỐNG ĐIỀU PHỐI AGENTIC RAG (LANGGRAPH 12 NODES)"]
+    %% LANGGRAPH ORCHESTRATION PIPELINE
+    subgraph LangGraph ["AGENTIC RAG ORCHESTRATION PIPELINE (LANGGRAPH 12 NODES)"]
         START --> Router{"1. Intent Router"}
         Checkpointer[("MemorySaver")] -.-> Router
 
-        Router -->|smalltalk| Smalltalk["2. Smalltalk Node<br/>(Chào hỏi xã giao)"]
-        Router -->|out_of_scope| OutScope["3. Out-of-Scope Node<br/>(Từ chối ngoài phạm vi)"]
+        Router -->|smalltalk| Smalltalk["2. Smalltalk Node<br/>(Conversational Chit-Chat)"]
+        Router -->|out_of_scope| OutScope["3. Out-of-Scope Node<br/>(Non-Legal Refusal)"]
         Router -->|legal_query| ApplicabilityValidator{"4. Legal Applicability Validator<br/>(Fact Extractor + Rule Engine Gate)"}
 
-        %% CHỐT CHẶN ĐIỀU KIỆN ÁP DỤNG (HARD GATE)
-        subgraph HardGate ["CHỐT CHẶN ĐIỀU KIỆN CHỦ THỂ & HIỆU LỰC (HARD GATE)"]
-            ApplicabilityValidator -->|BLOCKED<br/>Chưa đủ tuổi / Loại trừ TNHS| Inapplicability["5. Inapplicability Explainer Node<br/>(STOP PUNISHMENT PATH)<br/>Khẳng định không bị phạt tù<br/>Chuyển hướng Dân sự & Giáo dưỡng"]
+        %% STATUTORY APPLICABILITY HARD GATE
+        subgraph HardGate ["STATUTORY APPLICABILITY & LIABILITY HARD GATE"]
+            ApplicabilityValidator -->|BLOCKED<br/>Underage / Criminal Immunity| Inapplicability["5. Inapplicability Explainer Node<br/>(STOP PUNISHMENT PATH)<br/>Confirm No Prison Penalty<br/>Redirect to Civil & Educational Measures"]
         end
 
-        %% LUỒNG RAG CHÍNH THỨC
-        ApplicabilityValidator -->|ALLOWED / REQUIRE_CONDITION| Decompose["6. Decompose Node<br/>(Sửa chính tả, Tách vi phạm, HyDE)"]
+        %% OFFICIAL RAG PIPELINE
+        ApplicabilityValidator -->|ALLOWED / REQUIRE_CONDITION| Decompose["6. Decompose Node<br/>(Spellcheck, Sub-query Decomposition, HyDE)"]
 
-        %% VÒNG LẶP 1: CRAG LOOP
-        subgraph Stage_Retrieval ["GIAI ĐOẠN 1: TRUY HỒI & CORRECTIVE RAG (CRAG LOOP)"]
+        %% LOOP 1: CRAG LOOP
+        subgraph Stage_Retrieval ["STAGE 1: RETRIEVAL & CORRECTIVE RAG (CRAG LOOP)"]
             direction TB
-            Decompose --> Retrieve["7. Retrieve Node<br/>(BM25 + pgvector + Rerank)"]
-            Retrieve --> GradeDocs{"8. Grade Docs<br/>(Thẩm định tài liệu)"}
+            Decompose --> Retrieve["7. Retrieve Node<br/>(BM25 + pgvector + FlashRank)"]
+            Retrieve --> GradeDocs{"8. Grade Docs<br/>(Relevance Evaluator)"}
             
-            GradeDocs -->|Chưa đạt| RewriteQuery["9. Rewrite Query Node<br/>(Mở rộng & Viết lại thuật ngữ)"]
-            RewriteQuery -->|Truy hồi lại| Retrieve
+            GradeDocs -->|Irrelevant| RewriteQuery["9. Rewrite Query Node<br/>(Query Expansion & Standardization)"]
+            RewriteQuery -->|Re-retrieve| Retrieve
         end
 
-        %% VÒNG LẶP 2: SELF-RAG LOOP
-        subgraph Stage_Generation ["GIAI ĐOẠN 2: LẬP LUẬN & SELF-CORRECTION (SELF-RAG LOOP)"]
+        %% LOOP 2: SELF-RAG LOOP
+        subgraph Stage_Generation ["STAGE 2: REASONING & SELF-CORRECTION (SELF-RAG LOOP)"]
             direction TB
-            GradeDocs -->|Đạt chuẩn| Generate["10. Generate Node<br/>(Smart Windowing + LLM 4 phần)"]
-            Generate --> CitationGuard{"11. Citation Guard<br/>(Kiểm định trích dẫn)"}
+            GradeDocs -->|Relevant| Generate["10. Generate Node<br/>(Smart Windowing + 4-Part Response)"]
+            Generate --> CitationGuard{"11. Citation Guard<br/>(Grounding & Citation Verification)"}
             
-            CitationGuard -->|Có ảo giác| SelfCorrect["12. Self-Correct Node<br/>(Phản hồi yêu cầu sửa)"]
-            SelfCorrect -->|Sinh lại| Generate
+            CitationGuard -->|Hallucination Detected| SelfCorrect["12. Self-Correct Node<br/>(Self-Correction Feedback)"]
+            SelfCorrect -->|Regenerate| Generate
         end
 
         Inapplicability --> END([END])
-        CitationGuard -->|Đạt kiểm tra citation| END
+        CitationGuard -->|Verified Citations| END
         Smalltalk --> END
         OutScope --> END
     end
 
-    %% TẦNG DỮ LIỆU PHÁP LÝ & CƠ SỞ TRI THỨC CẤU TRÚC
-    subgraph Storage ["TẦNG DỮ LIỆU & TRI THỨC PHÁP LÝ (STRUCTURED KNOWLEDGE BASE)"]
-        DB_Records[("PostgreSQL 17 (pgvector)<br/>13,744 bản ghi luật")]
-        DB_Registry[("Legal Registry & Taxonomy<br/>Registry/taxonomy bổ sung")]
-        DB_Rules[("Applicability Rules Base<br/>Quy tắc điều kiện có versioning")]
-        BM25Cache[("BM25 Okapi Index<br/>bm25_index_cache.json")]
+    %% DATA LAYER & STRUCTURED KNOWLEDGE BASE
+    subgraph Storage ["DATA LAYER & STRUCTURED LEGAL KNOWLEDGE BASE"]
+        DB_Records[("PostgreSQL 17 (pgvector)<br/>13,744 Legal Article Embeddings")]
+        DB_Registry[("Legal Registry & Taxonomy<br/>Document Titles & Law Codes")]
+        DB_Rules[("Applicability Rules Base<br/>Versioned Statutory Conditions Base")]
+        BM25Cache[("BM25 Okapi Index Cache<br/>Pre-tokenized Lexical Index (49MB)")]
     end
 
-    ApplicabilityValidator <-->|Đọc Rule Schema & Điều kiện| DB_Rules
-    ApplicabilityValidator <-->|Thẩm tra số điều & tên luật| DB_Registry
-    Retrieve <-->|Dense Search| DB_Records
-    Retrieve <-->|Sparse Search| BM25Cache
+    ApplicabilityValidator <-->|Fetch Rule Schema & Conditions| DB_Rules
+    ApplicabilityValidator <-->|Verify Article Number & Law Name| DB_Registry
+    Retrieve <-->|Dense Search (Cosine)| DB_Records
+    Retrieve <-->|Sparse Search (BM25)| BM25Cache
 
-    END --> Output["Phản hồi hoàn chỉnh gửi Client<br/>(Cấu trúc 4 phần chuẩn + Giọng nói TTS)"]
+    END --> Output["Final Structured Response to Client<br/>(Standard 4-Part Structure + Audio TTS)"]
 
     %% STYLING
     classDef clientStyle fill:#0f172a,stroke:#38bdf8,stroke-width:2px,color:#f8fafc;
