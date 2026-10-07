@@ -392,22 +392,7 @@ jupyter notebook notebooks/
 
 Hệ thống được đo lường định lượng toàn diện trên cơ sở tri thức 13.744 Điều luật, môi trường máy chủ cục bộ (Ollama `qwen2.5:3b`, `nomic-embed-text` và PostgreSQL 17 pgvector), tích hợp bộ dữ liệu thi đấu pháp lý chuẩn quốc gia **ALQAC (Automated Legal Question Answering Competition)**.
 
-### 1. Năng lực Truy xuất (Retrieval Ablation Study - Notebook 02)
-Đo lường trên tập benchmark **52 câu hỏi ALQAC chuẩn hóa** (`backend/data/eval/alqac_filtered_52.json`) đối chiếu 13.744 Điều luật trong cơ sở dữ liệu:
-
-| Chiến lược truy xuất | Recall@1 (%) | Recall@3 (%) | Recall@5 (%) | Recall@10 (%) | MRR | Latency P50 (ms) | Latency P90 (ms) |
-|---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
-| **1. BM25 (Lexical Only)** | **40.38%** | **59.62%** | **65.38%** | **78.85%** | **0.52** | 143.2 ms | 331.5 ms |
-| **2. Dense Vector (Semantic Only)** | 21.15% | 34.62% | 38.46% | 40.38% | 0.28 | **40.4 ms** | 134.4 ms |
-| **3. Hybrid RRF (Combined Dense + Sparse)** | 34.62% | 48.08% | 57.69% | 71.15% | 0.45 | 208.6 ms | 434.7 ms |
-| **4. Hybrid RRF + Expansion (Hệ thống v3)** | 34.62% | 48.08% | 57.69% | 71.15% | 0.45 | 218.7 ms | 409.6 ms |
-
-> **Nhận xét chuyên sâu:**
-> - BM25 đạt Recall@10 cao nhất (**78.85%**) nhờ đặc thù câu hỏi ALQAC chứa nhiều thuật ngữ pháp lý chính xác (như *hợp đồng điện tử, nồng độ cồn, phương án giá*).
-> - Dense Vector có tốc độ xử lý nhanh nhất (**40.4 ms**), đóng vai trò bổ khuyết ngữ nghĩa cho các cách diễn đạt đời thường.
-> - Cơ chế Hybrid RRF cân bằng hài hòa giữa từ khóa và ngữ nghĩa, giúp chống sót các Điều luật đặc thù.
-
-### 2. Đánh giá Chất lượng Agentic RAG qua RAGAS Framework (Notebook 03)
+### 1. Đánh giá Chất lượng Agentic RAG qua RAGAS Framework (Notebook 03)
 Đánh giá trên 15 bài toán phân loại ý định và **toàn bộ 52 bài toán pháp lý chuyên sâu từ tập ALQAC** (`backend/data/eval/alqac_filtered_52.json`) có Ground Truth 4 phần đối chuẩn:
 
 - **Phân loại ý định (Intent Routing - 15 test cases):** Độ chính xác **93.3% (14/15)**, độ trễ trung bình **2.32s / truy vấn** (bao gồm lần nạp lạnh ban đầu).
@@ -422,7 +407,7 @@ Hệ thống được đo lường định lượng toàn diện trên cơ sở 
 | **Context Precision** | **53.8%** | Mức độ cô đọng và xếp hạng ưu tiên của các đoạn văn bản luật đưa vào ngữ cảnh sinh câu trả lời. |
 | **4-Part Structure Compliance** | **44.2%** | Tỷ lệ tuân thủ đầy đủ kết cấu 4 phần (khi gặp 35 câu trắc nghiệm ngắn, mô hình 3B tập trung vào Kết luận và Căn cứ pháp lý). |
 
-### 3. Ma trận Phân vị Độ trễ & Thông lượng (Latency Benchmark - Notebook 04)
+### 2. Ma trận Phân vị Độ trễ & Thông lượng (Latency Benchmark - Notebook 04)
 Đo lường vi mô chi tiết qua 7 chặng trên 6 bài toán ALQAC đại diện (bao quát 5 bộ luật và 3 dạng câu hỏi) chạy thực tế trên máy chủ cục bộ:
 
 | Chặng xử lý | Đơn vị | Mean (TB) | P50 (Median) | P90 | P99 (Max) | Min | Max |
