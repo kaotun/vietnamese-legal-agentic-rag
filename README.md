@@ -87,8 +87,8 @@ flowchart TD
 
     ApplicabilityValidator <-->|Fetch Rule Schema & Conditions| DB_Rules
     ApplicabilityValidator <-->|Verify Article Number & Law Name| DB_Registry
-    Retrieve <-->|Dense Search (Cosine)| DB_Records
-    Retrieve <-->|Sparse Search (BM25)| BM25Cache
+    Retrieve <-->|Dense Cosine Search| DB_Records
+    Retrieve <-->|Sparse BM25 Search| BM25Cache
 
     END --> Output["Final Structured Response to Client<br/>(Standard 4-Part Structure + Audio TTS)"]
 
